@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useActors, useSets } from "../lib/store";
 import { addNotes, createDeck, type AnkiNote } from "../../../src/anki-connect";
-import { parsePinyin, TONE_TO_ROOM } from "../../../src/pinyin";
+import { parsePinyin } from "../../../src/pinyin";
+import { buildScene, resolveLibrary } from "../../../src/scene-prompt";
 import {
   fromFreq,
   fromHeisig,
@@ -12,6 +13,9 @@ import {
 } from "../../../src/sources";
 import freqData from "../data/freq-top.json";
 import heisigData from "../data/heisig.json";
+import decompData from "../data/decomp.json";
+
+const DECOMP = decompData as Record<string, string[]>;
 
 const FREQ_ENTRIES: UnifiedEntry[] = (freqData as FreqEntry[]).map(fromFreq);
 const HEISIG_ENTRIES: UnifiedEntry[] = (heisigData as HeisigEntry[])
@@ -47,33 +51,47 @@ export function GenerateDeck() {
 
       const picked = pickSource(source).slice(0, count);
       const notes: AnkiNote[] = [];
+      let skipped = 0;
       for (const entry of picked) {
         const parts = parsePinyin(entry.pinyin);
         if (!parts) {
           appendLog(`  skip ${entry.hanzi}: cannot parse pinyin "${entry.pinyin}"`);
+          skipped++;
           continue;
         }
-        const actor = actors[parts.initial]?.name ?? `(no actor for ${parts.initial})`;
-        const set = sets[parts.final]?.name ?? `(no set for ${parts.final})`;
-        const room = TONE_TO_ROOM[parts.tone];
-        const scene =
-          `${actor} in the ${room} of ${set} — ${entry.meaning}`;
-        appendLog(`  ${entry.hanzi} (${entry.pinyin}) → ${scene}`);
+        const lib = resolveLibrary(parts, actors, sets);
+        if (!lib) {
+          appendLog(`  skip ${entry.hanzi}: missing actor for "${parts.initial}-" or set for "-${parts.final}"`);
+          skipped++;
+          continue;
+        }
+        const components = DECOMP[entry.hanzi] ?? [];
+        const scene = buildScene({
+          actor: lib.actor,
+          components,
+          meaning: entry.meaning,
+          pinyin: parts,
+          set: lib.set,
+        });
+        appendLog(`  ${entry.hanzi} (${entry.pinyin}) → ${scene.short}`);
         notes.push({
           deckName,
           fields: {
             Front: entry.hanzi,
-            Back: `<div><strong>${entry.pinyin}</strong></div><div>${entry.meaning}</div><div><em>${scene}</em></div>`,
+            Back: `<div><strong>${entry.pinyin}</strong></div><div>${entry.meaning}</div><div><em>${scene.short}</em></div>`,
+            Components: components.join(""),
             Hanzi: entry.hanzi,
             Meaning: entry.meaning,
             Pinyin: entry.pinyin,
-            Scene: scene,
+            Scene: scene.short,
+            ScenePrompt: scene.long,
           },
           modelName: "Basic",
           options: { allowDuplicate: false },
-          tags: ["hmm-imagegen", source],
+          tags: ["hmm-imagegen", source, ...components.map((c) => `comp:${c}`)],
         });
       }
+      if (skipped > 0) appendLog(`(${skipped} skipped due to missing library entries)`);
       appendLog(`Pushing ${notes.length} notes…`);
       const result = await addNotes(notes);
       const ok = result.filter((id) => id !== null).length;
