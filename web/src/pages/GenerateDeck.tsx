@@ -53,6 +53,32 @@ export function GenerateDeck() {
   const [previewHanzi, setPreviewHanzi] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
 
+  // A card is "ready" for inclusion when its actor + set slots are
+  // filled. When image-gen is on, "ready" tightens to also require
+  // reference images for both — admin's HMM rule:
+  // "It should be based on the references" — generating Arnold in
+  // a random kitchen defeats the whole HMM premise of using YOUR
+  // specific actors + YOUR specific locations.
+  function setHasRefForTone(
+    set: { rooms?: Partial<Record<1 | 2 | 3 | 4 | 5, string>>; exteriorDataUrl?: string } | undefined,
+    tone: 1 | 2 | 3 | 4 | 5,
+  ): boolean {
+    if (!set) return false;
+    if (set.rooms?.[tone]) return true;
+    return Boolean(set.exteriorDataUrl);
+  }
+  function isCardReady(entry: { pinyin: string }, requireRefs: boolean): boolean {
+    const parts = parsePinyin(entry.pinyin);
+    if (!parts) return false;
+    const actor = actors[parts.initial];
+    const set = sets[parts.final];
+    if (!actor || !set) return false;
+    if (!requireRefs) return true;
+    if (!actor.imageDataUrl) return false;
+    if (!setHasRefForTone(set, parts.tone)) return false;
+    return true;
+  }
+
   // Live preview of how many entries from the chosen source are
   // resolvable with the user's current actor + set library.
   const eligibleStats = (() => {
@@ -60,16 +86,22 @@ export function GenerateDeck() {
     let ready = 0;
     let unreadyForInitial = 0;
     let unreadyForFinal = 0;
+    let unreadyForActorRef = 0;
+    let unreadyForSetRef = 0;
     for (const entry of all) {
       const parts = parsePinyin(entry.pinyin);
       if (!parts) continue;
-      const hasActor = !!actors[parts.initial];
-      const hasSet = !!sets[parts.final];
-      if (hasActor && hasSet) ready++;
-      else if (!hasActor) unreadyForInitial++;
-      else unreadyForFinal++;
+      const actor = actors[parts.initial];
+      const set = sets[parts.final];
+      if (!actor) { unreadyForInitial++; continue; }
+      if (!set) { unreadyForFinal++; continue; }
+      if (generateImages) {
+        if (!actor.imageDataUrl) { unreadyForActorRef++; continue; }
+        if (!setHasRefForTone(set, parts.tone)) { unreadyForSetRef++; continue; }
+      }
+      ready++;
     }
-    return { ready, total: all.length, unreadyForInitial, unreadyForFinal };
+    return { ready, total: all.length, unreadyForActorRef, unreadyForInitial, unreadyForFinal, unreadyForSetRef };
   })();
 
   // Fidelity check — count actor/set slots that have a reference image.
@@ -111,13 +143,15 @@ export function GenerateDeck() {
     setPreviewHanzi(null);
     try {
       const all = pickSource(source);
-      const candidate = all.find((entry) => {
-        const parts = parsePinyin(entry.pinyin);
-        if (!parts) return false;
-        return Boolean(actors[parts.initial]) && Boolean(sets[parts.final]);
-      });
+      // Preview uses the same readiness rule as the build path: if
+      // image-gen is on, the candidate must have BOTH refs.
+      const candidate = all.find((entry) => isCardReady(entry, generateImages));
       if (!candidate) {
-        appendLog("preview: no eligible character — assign at least one actor + set pair");
+        appendLog(
+          generateImages
+            ? "preview: no eligible character — every actor + set used must have reference images uploaded"
+            : "preview: no eligible character — assign at least one actor + set pair",
+        );
         return;
       }
       const parts = parsePinyin(candidate.pinyin)!;
@@ -173,13 +207,14 @@ export function GenerateDeck() {
       // Filter source list based on the onlyReady toggle + existing-dedup
       // BEFORE slicing by count — so "count=20, onlyReady=true" means
       // "first 20 NEW resolvable chars" not "first 20 chars total".
+      // When image-gen is on, readiness ALSO requires ref images for
+      // the actor + set (HMM rule: scenes must be based on YOUR refs,
+      // not a generic kitchen).
       const all = pickSource(source);
       const filtered = all.filter((entry) => {
         if (existing.has(entry.hanzi)) return false;
-        if (!onlyReady) return true;
-        const parts = parsePinyin(entry.pinyin);
-        if (!parts) return false;
-        return Boolean(actors[parts.initial]) && Boolean(sets[parts.final]);
+        if (!onlyReady && !generateImages) return true;
+        return isCardReady(entry, generateImages);
       });
       const picked = filtered.slice(0, count);
       appendLog(
@@ -377,6 +412,13 @@ export function GenerateDeck() {
               {" "}
               · {eligibleStats.unreadyForInitial} blocked by missing actors
               · {eligibleStats.unreadyForFinal} blocked by missing sets
+              {generateImages && (eligibleStats.unreadyForActorRef > 0 || eligibleStats.unreadyForSetRef > 0) && (
+                <>
+                  {" "}
+                  · {eligibleStats.unreadyForActorRef} blocked by no actor photo
+                  · {eligibleStats.unreadyForSetRef} blocked by no room/exterior photo
+                </>
+              )}
             </span>
           )}
         </div>
@@ -397,7 +439,7 @@ export function GenerateDeck() {
 
         {generateImages && (refStats.actorsWithRef < refStats.actorsTotal || refStats.setsWithRef < refStats.setsTotal) && (
           <div className="fidelity-warning" data-testid="fidelity-warning">
-            <strong>⚠ Fidelity warning</strong> · {refStats.actorsWithRef}/{refStats.actorsTotal} actors and {refStats.setsWithRef}/{refStats.setsTotal} sets have reference images. Cards using slots without refs will have weak character/location consistency across the deck. Upload more refs in steps 1-2 for better results.
+            <strong>HMM requirement</strong> · scenes are generated from YOUR actor + location refs. Cards missing either ref are EXCLUDED from the deck (no generic-kitchen fallback). Currently {refStats.actorsWithRef}/{refStats.actorsTotal} actors and {refStats.setsWithRef}/{refStats.setsTotal} sets have ref photos — upload more in steps 1-2 to expand eligibility.
           </div>
         )}
 
