@@ -48,19 +48,28 @@ export type ActorCategory = "man" | "woman" | "fictional" | "god-or-leader";
  * our own consolidation following the same principles. We'll iterate
  * once a learner tests it.
  */
+/**
+ * 13 HMM-consolidated finals. Audit findings (2026-05):
+ * - "ou" / "iu" / "iou" must NOT be folded into "o" — they're a
+ *   distinct ending. Top-3000 has 200+ chars on this group.
+ * - "er" is rare (~6 chars in top-3000) and Mandarin Blueprint folds
+ *   it into the residual bucket; we drop it from the canonical 13.
+ *   The parser still returns it for "er" raw, falling under "o" set
+ *   for the user's HMM library by convention (or they can override).
+ */
 export const FINALS = [
   "a",     // a, ia, ua
   "ai",    // ai, uai
-  "an",    // an, ian, uan
+  "an",    // an, ian, uan, üan
   "ang",   // ang, iang, uang
   "ao",    // ao, iao
   "e",     // e, ie, ue, üe
-  "ei",    // ei, ui
+  "ei",    // ei, ui (= uei)
   "en",    // en, in, un, ün
   "eng",   // eng, ing, ueng, ong, iong
-  "er",    // er
   "i",     // i, -i (zhi/chi/shi/ri/zi/ci/si)
-  "o",     // o, uo
+  "o",     // o, uo, er (residual)
+  "ou",    // ou, iu (= iou)
   "u",     // u, ü
 ] as const;
 export type Final = (typeof FINALS)[number];
@@ -123,22 +132,27 @@ function stripToneMarks(s: string): [string, 1 | 2 | 3 | 4 | 5] {
 
 /** Map a raw final (after initial is stripped) to the HMM consolidated final. */
 function consolidateFinal(raw: string): Final {
-  // Order matters — longer matches first.
-  if (raw === "er") return "er";
+  // Order matters — longer matches first. "iou" -> "ou" before any
+  // pattern that could match "i".
+  if (/^(iou|iu|ou)$/.test(raw)) return "ou";
   if (/^(iang|uang|ang)$/.test(raw)) return "ang";
   if (/^(eng|ing|ueng|ong|iong)$/.test(raw)) return "eng";
   if (/^(ian|uan|üan|van|an)$/.test(raw)) return "an";
   if (/^(in|un|ün|vn|en)$/.test(raw)) return "en";
   if (/^(iao|ao)$/.test(raw)) return "ao";
   if (/^(uai|ai)$/.test(raw)) return "ai";
-  if (/^(ui|ei)$/.test(raw)) return "ei";
+  if (/^(ui|uei|ei)$/.test(raw)) return "ei";
   if (/^(ia|ua|a)$/.test(raw)) return "a";
   if (/^(ie|üe|ue|ve|e)$/.test(raw)) return "e";
+  // "er" is rare (~6 chars in top-3000); fold into "o" set per HMM
+  // residual convention. Learner can choose how to handle 儿/二/而
+  // in that set.
+  if (raw === "er") return "o";
   if (/^(uo|o)$/.test(raw)) return "o";
   if (raw === "ü" || raw === "v" || raw === "u") return "u";
   if (raw === "i") return "i";
-  // Fallback: best-effort
-  return (raw as Final) ?? "a";
+  // Fallback: best-effort. Should never hit for valid pinyin.
+  return "a";
 }
 
 const INITIAL_MATCH = /^(zh|ch|sh|b|p|m|f|d|t|n|l|g|k|h|j|q|x|r|z|c|s|y|w)/;

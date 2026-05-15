@@ -9,6 +9,21 @@ describe("parsePinyin", () => {
     expect(parsePinyin("shì")).toMatchObject({ final: "i", initial: "sh", tone: 4 });
   });
 
+  it("maps -ou / -iu / -iou to the ou final", () => {
+    expect(parsePinyin("hòu")).toMatchObject({ final: "ou", initial: "h" });
+    expect(parsePinyin("zǒu")).toMatchObject({ final: "ou", initial: "z" });
+    expect(parsePinyin("dōu")).toMatchObject({ final: "ou", initial: "d" });
+    expect(parsePinyin("qiú")).toMatchObject({ final: "ou", initial: "q" });
+    expect(parsePinyin("liú")).toMatchObject({ final: "ou", initial: "l" });
+    expect(parsePinyin("jiǔ")).toMatchObject({ final: "ou", initial: "j" });
+    expect(parsePinyin("yǒu")).toMatchObject({ final: "ou", initial: "∅" });
+  });
+
+  it("folds the rare er final into the o set", () => {
+    expect(parsePinyin("ér")).toMatchObject({ final: "o", initial: "∅" });
+    expect(parsePinyin("èr")).toMatchObject({ final: "o", initial: "∅" });
+  });
+
   it("parses numeric form", () => {
     expect(parsePinyin("ma1")).toMatchObject({ final: "a", initial: "m", tone: 1 });
     expect(parsePinyin("lin2")).toMatchObject({ final: "en", initial: "l", tone: 2 });
