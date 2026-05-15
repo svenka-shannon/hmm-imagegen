@@ -9,7 +9,7 @@ import {
 } from "../../../src/anki-connect";
 import { fetchAsBase64, generateScene } from "../lib/imagegen-client";
 import { parsePinyin } from "../../../src/pinyin";
-import { buildScene, resolveLibrary } from "../../../src/scene-prompt";
+import { buildScene, estimateCost, resolveLibrary } from "../../../src/scene-prompt";
 import {
   fromFreq,
   fromHeisig,
@@ -44,6 +44,8 @@ export function GenerateDeck() {
   const [onlyReady, setOnlyReady] = useState(true);
   const [generateImages, setGenerateImages] = useState(false);
   const [imageBackend, setImageBackend] = useState<"gemini" | "mock">("gemini");
+  const [imageModel, setImageModel] = useState("gemini-2.5-flash-image");
+  const [stylePrefix, setStylePrefix] = useState(() => localStorage.getItem("hmm.stylePrefix") ?? "");
   const [busy, setBusy] = useState(false);
   const [previewBusy, setPreviewBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -104,11 +106,13 @@ export function GenerateDeck() {
         meaning: candidate.meaning,
         pinyin: parts,
         set: lib.set,
+        stylePrefix: stylePrefix || undefined,
       });
       setPreviewHanzi(candidate.hanzi);
       setPreviewScene(scene.short);
       const gen = await generateScene({
         backend: imageBackend,
+        model: imageModel,
         prompt: scene.long,
         refs: scene.refs.map((r) => r.dataUrl),
       });
@@ -180,6 +184,7 @@ export function GenerateDeck() {
           meaning: entry.meaning,
           pinyin: parts,
           set: lib.set,
+          stylePrefix: stylePrefix || undefined,
         });
         appendLog(`  ${entry.hanzi} (${entry.pinyin}) → ${scene.short}`);
 
@@ -191,6 +196,7 @@ export function GenerateDeck() {
           try {
             const gen = await generateScene({
               backend: imageBackend,
+              model: imageModel,
               prompt: scene.long,
               refs: scene.refs.map((r) => r.dataUrl),
             });
@@ -299,17 +305,46 @@ export function GenerateDeck() {
         </label>
 
         {generateImages && (
-          <label>
-            Image backend
-            <select
-              value={imageBackend}
-              onChange={(e) => setImageBackend(e.target.value as "gemini" | "mock")}
-              data-testid="image-backend-select"
-            >
-              <option value="gemini">Gemini (nano-banana)</option>
-              <option value="mock">Mock (1x1 PNG, no API calls)</option>
-            </select>
-          </label>
+          <>
+            <label>
+              Image backend
+              <select
+                value={imageBackend}
+                onChange={(e) => setImageBackend(e.target.value as "gemini" | "mock")}
+                data-testid="image-backend-select"
+              >
+                <option value="gemini">Gemini (nano-banana)</option>
+                <option value="mock">Mock (1x1 PNG, no API calls)</option>
+              </select>
+            </label>
+
+            <label>
+              Model
+              <select
+                value={imageModel}
+                onChange={(e) => setImageModel(e.target.value)}
+                disabled={imageBackend === "mock"}
+                data-testid="image-model-select"
+              >
+                <option value="gemini-2.5-flash-image">2.5 Flash Image (cheaper, faster)</option>
+                <option value="gemini-3-pro-image-preview">3 Pro Image (better quality)</option>
+              </select>
+            </label>
+
+            <label className="style-prefix-label">
+              Style prefix (optional)
+              <textarea
+                value={stylePrefix}
+                onChange={(e) => {
+                  setStylePrefix(e.target.value);
+                  localStorage.setItem("hmm.stylePrefix", e.target.value);
+                }}
+                placeholder='e.g. "Studio Ghibli anime style, hand-drawn line art with watercolor wash"'
+                rows={2}
+                data-testid="style-prefix-input"
+              />
+            </label>
+          </>
         )}
 
         <div className="eligibility-stats" data-testid="eligibility-stats">
@@ -322,6 +357,20 @@ export function GenerateDeck() {
             </span>
           )}
         </div>
+
+        {generateImages && imageBackend === "gemini" && (() => {
+          const willGen = Math.min(count, onlyReady ? eligibleStats.ready : eligibleStats.total);
+          const est = estimateCost(imageModel, willGen);
+          return (
+            <div className="cost-estimate" data-testid="cost-estimate">
+              <strong>Estimated cost: ${est.total.toFixed(2)}</strong>
+              <span className="muted">
+                {" "}
+                · {willGen} image{willGen === 1 ? "" : "s"} × ${est.perImage.toFixed(3)}/img · {est.label}
+              </span>
+            </div>
+          );
+        })()}
 
         <div className="generate-actions">
           <button

@@ -264,6 +264,29 @@ button.primary:hover:not(:disabled) { filter: brightness(1.05); }
   user-select: none;
 }
 .checkbox-row input { width: 16px; height: 16px; }
+.style-prefix-label {
+  grid-column: 1 / -1;
+}
+.style-prefix-label textarea {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  font: inherit;
+  resize: vertical;
+  min-height: 48px;
+}
+.cost-estimate {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  padding: 8px 12px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+}
+.cost-estimate strong { color: var(--accent); }
+
 .eligibility-stats {
   grid-column: 1 / -1;
   font-size: 13px;

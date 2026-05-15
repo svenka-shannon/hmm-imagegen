@@ -39,6 +39,16 @@ export interface SceneBuildOpts {
   set: SetRef;
   /** Prop assignments for each component, if known. */
   props?: PropAssignment[];
+  /**
+   * Optional system-style prefix that gets prepended to the long prompt.
+   * Lets the user pin a global rendering style (e.g. "Studio Ghibli anime
+   * style, hand-drawn line art with watercolor wash" or
+   * "Pixar-style 3D animation, soft volumetric lighting").
+   *
+   * Kept as a single freeform string so the user has full creative control
+   * — we just glue it on top of our base prompt.
+   */
+  stylePrefix?: string;
 }
 
 export interface SceneOutput {
@@ -59,7 +69,8 @@ export interface SceneOutput {
  * surface the meaning as a hint.
  */
 export function buildScene(opts: SceneBuildOpts): SceneOutput {
-  const { pinyin, meaning, components = [], actor, set, props = [] } = opts;
+  const { pinyin, meaning, components: _components = [], actor, set, props = [], stylePrefix } = opts;
+  void _components; // surfaced via the props mapping; kept on the type for downstream consumers
   const room = TONE_TO_ROOM[pinyin.tone];
 
   const propPhrase = props.length === 0
@@ -89,8 +100,11 @@ export function buildScene(opts: SceneBuildOpts): SceneOutput {
   const concreteProps = props.length > 0
     ? props.map((p) => p.prop).filter(Boolean)
     : [];
+  const baseStyle = stylePrefix?.trim()
+    ? `${stylePrefix.trim()}.`
+    : `Photorealistic snapshot.`;
   const long = [
-    `Photorealistic snapshot, no text, no captions, no labels, no logos, no overlays.`,
+    `${baseStyle} No text, no captions, no labels, no logos, no overlays.`,
     `${actor.name} is in the ${room} of ${set.name}.`,
     concreteProps.length > 0
       ? `Visible objects in the scene: ${joinList(concreteProps)}.`
@@ -118,6 +132,23 @@ function joinList(items: string[]): string {
   if (items.length === 1) return items[0];
   if (items.length === 2) return `${items[0]} and ${items[1]}`;
   return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+/**
+ * Per-image cost estimates ($USD), normalised to a 1024x1024 ("1K") output.
+ * Numbers refreshed 2026-05 from Google's published pricing pages.
+ * Batch-mode prices (50% off) listed separately.
+ */
+export const IMAGEGEN_COST_USD: Record<string, { realtime: number; batch: number; label: string }> = {
+  "gemini-2.5-flash-image": { batch: 0.0335, label: "Gemini 2.5 Flash Image @ 1K", realtime: 0.067 },
+  "gemini-3-pro-image-preview": { batch: 0.067, label: "Gemini 3 Pro Image @ 1K", realtime: 0.134 },
+  mock: { batch: 0, label: "Mock (no API call)", realtime: 0 },
+};
+
+export function estimateCost(model: string, count: number, batch = false): { perImage: number; total: number; label: string } {
+  const m = IMAGEGEN_COST_USD[model] ?? IMAGEGEN_COST_USD["gemini-2.5-flash-image"];
+  const perImage = batch ? m.batch : m.realtime;
+  return { label: m.label, perImage, total: perImage * count };
 }
 
 /**
