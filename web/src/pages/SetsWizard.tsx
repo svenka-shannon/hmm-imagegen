@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FINALS, type Final, TONE_TO_ROOM } from "../../../src/pinyin";
 import { useSets } from "../lib/store";
 import { PrepDeckButton } from "../components/PrepDeckButton";
+import { LibraryIO } from "../components/LibraryIO";
 
 interface Props {
   readonly onComplete: () => void;
@@ -127,6 +128,8 @@ export function SetsWizard({ onComplete }: Props) {
       )}
 
       <PrepDeckButton />
+
+      <LibraryIO />
 
       <footer className="wizard-footer">
         <button

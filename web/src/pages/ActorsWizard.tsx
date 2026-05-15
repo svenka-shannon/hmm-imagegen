@@ -2,6 +2,7 @@ import { useState } from "react";
 import { INITIALS, type Initial, type ActorCategory } from "../../../src/pinyin";
 import { useActors } from "../lib/store";
 import { PrepDeckButton } from "../components/PrepDeckButton";
+import { LibraryIO } from "../components/LibraryIO";
 
 interface Props {
   readonly onComplete: () => void;
@@ -121,6 +122,8 @@ export function ActorsWizard({ onComplete }: Props) {
       )}
 
       <PrepDeckButton />
+
+      <LibraryIO />
 
       <footer className="wizard-footer">
         <button
