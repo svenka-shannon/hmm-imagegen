@@ -91,10 +91,24 @@ export function SetsWizard({ onComplete }: Props) {
               onClick={() => setOpenFinal(final)}
               data-testid={`final-card-${final}`}
             >
+              {s?.exteriorDataUrl && (
+                <img src={s.exteriorDataUrl} alt="" className="final-card-thumb" />
+              )}
               <div className="final-glyph">-{final}</div>
               <div className="final-set-name">
-                {s?.name ?? <em>unassigned</em>}
+                {s?.name ?? <span className="empty-cta">+ Click to assign</span>}
               </div>
+              {s?.rooms && (
+                <div className="final-card-rooms">
+                  {[1, 2, 3, 4, 5].map((t) => (
+                    <span
+                      key={t}
+                      className={`final-card-room-dot ${s.rooms?.[t as 1 | 2 | 3 | 4 | 5] ? "filled" : ""}`}
+                      title={`Tone ${t}`}
+                    />
+                  ))}
+                </div>
+              )}
             </button>
           );
         })}
@@ -121,7 +135,7 @@ export function SetsWizard({ onComplete }: Props) {
           disabled={filled === 0}
           data-testid="next-button"
         >
-          Continue → Generate
+          Continue → Generate ({filled}/{FINALS.length} done)
         </button>
       </footer>
     </div>

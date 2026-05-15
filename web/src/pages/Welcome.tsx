@@ -5,43 +5,57 @@ interface Props {
 export function Welcome({ onStart }: Props) {
   return (
     <div className="welcome">
-      <h1>Build your Hanzi Movie Method deck</h1>
-      <p>
-        The Hanzi Movie Method turns each Chinese character into a vivid mental
-        movie scene. This tool walks you through the setup — assigning real
-        people from your life as <strong>actors</strong> for each Pinyin
-        initial, and real places as <strong>sets</strong> for each Pinyin
-        final — then auto-builds an Anki deck of the most common hanzi with
-        AI-generated scene imagery for each one.
-      </p>
+      <div className="welcome-hero">
+        <div className="welcome-tag">Hanzi Movie Method</div>
+        <h1>Generate your Mandarin mnemonic deck</h1>
+        <p className="welcome-lede">
+          Turn each Chinese character into a vivid movie scene — your actors,
+          your locations, AI-rendered for you.
+        </p>
+        <button className="primary big" onClick={onStart} data-testid="start-button">
+          Begin setup →
+        </button>
+      </div>
 
-      <h2>What you'll need</h2>
-      <ul>
-        <li>
-          <strong>Anki desktop</strong> running with the{" "}
-          <a
-            href="https://foosoft.net/projects/anki-connect/"
-            target="_blank"
-            rel="noreferrer"
-          >
-            AnkiConnect
-          </a>{" "}
-          add-on enabled (so we can push cards to your collection).
-        </li>
-        <li>
-          Reference images for each actor + set you choose (we'll show you
-          which slots need filling).
-        </li>
-        <li>
-          An image-generation API key (Gemini, fal.ai, OpenAI, etc.) for the
-          deck-generation step. Bring your own — this tool doesn't run a
-          backend image service.
-        </li>
-      </ul>
+      <div className="welcome-steps">
+        <div className="welcome-step">
+          <div className="welcome-step-num">1</div>
+          <div className="welcome-step-title">Cast your Actors</div>
+          <div className="welcome-step-body">
+            Pick 21 people from your life — one for each Pinyin initial. Upload
+            a reference photo for each.
+          </div>
+        </div>
+        <div className="welcome-step">
+          <div className="welcome-step-num">2</div>
+          <div className="welcome-step-title">Choose your Sets</div>
+          <div className="welcome-step-body">
+            Pick 13 familiar locations — one for each Pinyin final. Tones map
+            to fixed rooms inside each.
+          </div>
+        </div>
+        <div className="welcome-step">
+          <div className="welcome-step-num">3</div>
+          <div className="welcome-step-title">Generate the deck</div>
+          <div className="welcome-step-body">
+            Pick a source list (Top-N frequency or Heisig RTH), click generate,
+            review each card in Anki.
+          </div>
+        </div>
+      </div>
 
-      <button className="primary" onClick={onStart} data-testid="start-button">
-        Begin setup →
-      </button>
+      <div className="welcome-prereqs">
+        <strong>Prerequisites</strong>
+        <ul>
+          <li>
+            <a href="https://foosoft.net/projects/anki-connect/" target="_blank" rel="noreferrer">
+              AnkiConnect
+            </a>{" "}
+            add-on installed and Anki desktop running
+          </li>
+          <li>A Gemini API key (bring your own — see <code>~/.claude/secrets.env</code>)</li>
+        </ul>
+      </div>
     </div>
   );
 }

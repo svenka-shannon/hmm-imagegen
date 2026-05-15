@@ -50,9 +50,12 @@ export function ActorsWizard({ onComplete }: Props) {
               onClick={() => setOpenInitial(initial)}
               data-testid={`initial-card-${initial}`}
             >
+              {a?.imageDataUrl && (
+                <img src={a.imageDataUrl} alt="" className="initial-card-thumb" />
+              )}
               <div className="initial-glyph">{initial}</div>
               <div className="initial-actor-name">
-                {a?.name ?? <em>unassigned</em>}
+                {a?.name ?? <span className="empty-cta">+ Click to assign</span>}
               </div>
               <div className="initial-category-hint">
                 ({SUGGESTED_CATEGORY[initial]})
@@ -83,7 +86,7 @@ export function ActorsWizard({ onComplete }: Props) {
           disabled={filled === 0}
           data-testid="next-button"
         >
-          Continue → Sets
+          Continue → Sets ({filled}/{INITIALS.length} done)
         </button>
       </footer>
     </div>
