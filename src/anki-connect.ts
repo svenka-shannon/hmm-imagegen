@@ -116,6 +116,38 @@ export const addNotes = (notes: AnkiNote[], opts?: AnkiRequestOptions): Promise<
   invoke<(number | null)[]>("addNotes", { notes }, opts);
 
 /* ============================================================
+ * Search operations — used by the deck-generation step to
+ * filter out hanzi already in the deck so re-runs are
+ * additive (no review-schedule disruption).
+ * ============================================================ */
+
+/** Returns the note IDs matching a search query (e.g. `deck:"My Deck"`). */
+export const findNotes = (query: string, opts?: AnkiRequestOptions): Promise<number[]> =>
+  invoke<number[]>("findNotes", { query }, opts);
+
+export interface NoteInfo {
+  noteId: number;
+  modelName: string;
+  tags: string[];
+  fields: Record<string, { value: string; order: number }>;
+}
+
+export const notesInfo = (noteIds: number[], opts?: AnkiRequestOptions): Promise<NoteInfo[]> =>
+  invoke<NoteInfo[]>("notesInfo", { notes: noteIds }, opts);
+
+/** Convenience: collect the value of one specific field across all notes in a deck. */
+export async function deckFieldValues(
+  deckName: string,
+  field: string,
+  opts?: AnkiRequestOptions,
+): Promise<string[]> {
+  const ids = await findNotes(`deck:"${deckName.replaceAll('"', '\\"')}"`, opts);
+  if (ids.length === 0) return [];
+  const infos = await notesInfo(ids, opts);
+  return infos.map((info) => info.fields[field]?.value).filter((v): v is string => Boolean(v));
+}
+
+/* ============================================================
  * Media operations
  * ============================================================ */
 

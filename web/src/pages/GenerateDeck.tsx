@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useActors, useSets } from "../lib/store";
-import { addNotes, createDeck, type AnkiNote } from "../../../src/anki-connect";
+import { addNotes, createDeck, deckFieldValues, type AnkiNote } from "../../../src/anki-connect";
 import { parsePinyin } from "../../../src/pinyin";
 import { buildScene, resolveLibrary } from "../../../src/scene-prompt";
 import {
@@ -34,8 +34,28 @@ export function GenerateDeck() {
   const [source, setSource] = useState<SourceList>("top-freq");
   const [count, setCount] = useState(20);
   const [deckName, setDeckName] = useState(DECK_NAME_DEFAULT);
+  const [onlyReady, setOnlyReady] = useState(true);
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string[]>([]);
+
+  // Live preview of how many entries from the chosen source are
+  // resolvable with the user's current actor + set library.
+  const eligibleStats = (() => {
+    const all = pickSource(source);
+    let ready = 0;
+    let unreadyForInitial = 0;
+    let unreadyForFinal = 0;
+    for (const entry of all) {
+      const parts = parsePinyin(entry.pinyin);
+      if (!parts) continue;
+      const hasActor = !!actors[parts.initial];
+      const hasSet = !!sets[parts.final];
+      if (hasActor && hasSet) ready++;
+      else if (!hasActor) unreadyForInitial++;
+      else unreadyForFinal++;
+    }
+    return { ready, total: all.length, unreadyForInitial, unreadyForFinal };
+  })();
 
   function appendLog(line: string) {
     setLog((prev) => [...prev, line]);
@@ -45,11 +65,39 @@ export function GenerateDeck() {
     setBusy(true);
     setLog([]);
     try {
-      appendLog(`Creating deck: ${deckName}`);
+      appendLog(`Creating deck: ${deckName} (no-op if it already exists)`);
       await createDeck(deckName);
       appendLog("OK");
 
-      const picked = pickSource(source).slice(0, count);
+      // Pre-fetch existing Hanzi in the deck so re-runs are incremental.
+      // The dedupe key is the "Hanzi" field — Anki's allowDuplicate:false
+      // also rejects re-adds at insert time, but doing it here gives us a
+      // clean "X new, Y already in deck" preview AND avoids the failed-
+      // insert log noise.
+      appendLog("Fetching existing notes in deck for dedup…");
+      const existing = new Set<string>(
+        await deckFieldValues(deckName, "Hanzi").catch((err: Error) => {
+          appendLog(`  (could not read existing notes: ${err.message}; will rely on Anki's dedup)`);
+          return [];
+        }),
+      );
+      appendLog(`  ${existing.size} hanzi already in deck — will skip those`);
+
+      // Filter source list based on the onlyReady toggle + existing-dedup
+      // BEFORE slicing by count — so "count=20, onlyReady=true" means
+      // "first 20 NEW resolvable chars" not "first 20 chars total".
+      const all = pickSource(source);
+      const filtered = all.filter((entry) => {
+        if (existing.has(entry.hanzi)) return false;
+        if (!onlyReady) return true;
+        const parts = parsePinyin(entry.pinyin);
+        if (!parts) return false;
+        return Boolean(actors[parts.initial]) && Boolean(sets[parts.final]);
+      });
+      const picked = filtered.slice(0, count);
+      appendLog(
+        `Source ${source}: ${all.length} total, ${existing.size} already in deck, ${filtered.length} new+eligible, taking first ${picked.length}`,
+      );
       const notes: AnkiNote[] = [];
       let skipped = 0;
       for (const entry of picked) {
@@ -148,10 +196,31 @@ export function GenerateDeck() {
           />
         </label>
 
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={onlyReady}
+            onChange={(e) => setOnlyReady(e.target.checked)}
+            data-testid="only-ready-checkbox"
+          />
+          Only include hanzi whose actor + set are ready
+        </label>
+
+        <div className="eligibility-stats" data-testid="eligibility-stats">
+          <strong>{eligibleStats.ready}</strong> / {eligibleStats.total} eligible
+          {eligibleStats.ready < eligibleStats.total && (
+            <span className="muted">
+              {" "}
+              · {eligibleStats.unreadyForInitial} blocked by missing actors
+              · {eligibleStats.unreadyForFinal} blocked by missing sets
+            </span>
+          )}
+        </div>
+
         <button
           className="primary"
           onClick={build}
-          disabled={busy || !deckName.trim()}
+          disabled={busy || !deckName.trim() || (onlyReady && eligibleStats.ready === 0)}
           data-testid="generate-button"
         >
           {busy ? "Building…" : "Build & push to Anki"}

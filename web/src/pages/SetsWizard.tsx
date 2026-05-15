@@ -8,9 +8,36 @@ interface Props {
 
 const TONES: (1 | 2 | 3 | 4 | 5)[] = [1, 2, 3, 4, 5];
 
+type UploadMode = "strict" | "hybrid" | "budget";
+
+const MODE_LABEL: Record<UploadMode, string> = {
+  budget: "Budget · just name + 1 exterior per set",
+  hybrid: "Hybrid · name + tone-1 entrance shot",
+  strict: "Strict · all 5 room images per set",
+};
+const MODE_HELP: Record<UploadMode, string> = {
+  budget:
+    "13 photos total. Fastest setup. Image-gen invents room interiors from the prompt, so tone-1 kitchen and tone-2 bedroom look generic.",
+  hybrid:
+    "~26 photos. Recommended. The entrance image anchors each set; other rooms are invented but the location feels right.",
+  strict:
+    "~65 photos. Maximum visual fidelity. Each tone renders in the actual room you photographed.",
+};
+
+const MODE_STORAGE_KEY = "hmm.sets.uploadMode";
+
 export function SetsWizard({ onComplete }: Props) {
   const { sets, setSet } = useSets();
   const [openFinal, setOpenFinal] = useState<Final | null>(null);
+  const [mode, setMode] = useState<UploadMode>(() => {
+    const saved = localStorage.getItem(MODE_STORAGE_KEY) as UploadMode | null;
+    return saved ?? "hybrid";
+  });
+
+  function handleModeChange(m: UploadMode) {
+    setMode(m);
+    localStorage.setItem(MODE_STORAGE_KEY, m);
+  }
 
   const filled = FINALS.filter((f) => sets[f]?.name).length;
 
@@ -25,6 +52,25 @@ export function SetsWizard({ onComplete }: Props) {
         </p>
         <p className="muted">{filled} / {FINALS.length} assigned</p>
       </header>
+
+      <div className="mode-picker" data-testid="upload-mode-picker">
+        <div className="mode-picker-label">How thorough?</div>
+        {(Object.keys(MODE_LABEL) as UploadMode[]).map((m) => (
+          <label key={m} className={`mode-option ${mode === m ? "active" : ""}`}>
+            <input
+              type="radio"
+              name="upload-mode"
+              checked={mode === m}
+              onChange={() => handleModeChange(m)}
+              data-testid={`upload-mode-${m}`}
+            />
+            <div>
+              <div className="mode-option-title">{MODE_LABEL[m]}</div>
+              <div className="mode-option-help">{MODE_HELP[m]}</div>
+            </div>
+          </label>
+        ))}
+      </div>
 
       <div className="rooms-legend">
         {TONES.map((t) => (
