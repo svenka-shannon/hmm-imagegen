@@ -71,14 +71,34 @@ export function buildScene(opts: SceneBuildOpts): SceneOutput {
     `— ${meaning}`,
   ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 
+  // Prompt engineering notes:
+  //
+  // - Gemini's image-gen LOVES to bake captions / titles / brand-like
+  //   overlays into the scene unless you explicitly forbid them. We
+  //   front-load a hard "no text" directive.
+  // - Words like "cinematic" / "movie poster" / "vivid surreal" push the
+  //   model toward stylised compositions with floating title cards. We
+  //   keep the visual call more neutral ("photorealistic snapshot").
+  // - Props need to be CONCRETE, not described meta-textually ("a brown
+  //   horse" not "props referencing the component 馬"). We surface the
+  //   user's literal prop strings + omit the component glyphs from the
+  //   prompt text so the model doesn't try to render Chinese characters.
+  // - The action / meaning is the most-important visual signal; we
+  //   restate it twice (once as the moment the camera captures, once
+  //   as the intended takeaway).
+  const concreteProps = props.length > 0
+    ? props.map((p) => p.prop).filter(Boolean)
+    : [];
   const long = [
-    `Cinematic, vivid mnemonic scene.`,
-    `Subject: ${actor.name}.`,
-    `Location: the ${room} of ${set.name}.`,
-    components.length > 0 ? `Visual props referencing the character components ${components.join(", ")}.` : "",
-    props.length > 0 ? `Specific props: ${props.map((p) => `${p.component} → ${p.prop}`).join("; ")}.` : "",
-    `Action should evoke the meaning: "${meaning}".`,
-    `Mood: vivid, slightly surreal, dynamic. Camera at eye level. Sharp focus on subject.`,
+    `Photorealistic snapshot, no text, no captions, no labels, no logos, no overlays.`,
+    `${actor.name} is in the ${room} of ${set.name}.`,
+    concreteProps.length > 0
+      ? `Visible objects in the scene: ${joinList(concreteProps)}.`
+      : "",
+    `Action: ${actor.name} is interacting with the scene in a way that vividly depicts "${meaning}".`,
+    `The image should make a viewer immediately think "${meaning}" without any words on screen.`,
+    `Natural lighting, eye-level camera, sharp focus on ${actor.name} and the key objects.`,
+    `Avoid: text, captions, subtitles, brand logos, watermarks, motivational quotes, decorative writing on walls, infographic elements.`,
   ].filter(Boolean).join(" ");
 
   const refs: SceneOutput["refs"] = [];
