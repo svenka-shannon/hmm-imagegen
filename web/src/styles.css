@@ -307,6 +307,32 @@ button.primary:hover:not(:disabled) { filter: brightness(1.05); }
 .mode-option-title { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
 .mode-option-help { font-size: 12px; color: var(--fg-muted); }
 
+.generate-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.preview-card {
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.preview-meta { display: flex; align-items: center; gap: 12px; }
+.preview-meta strong { font-size: 28px; }
+.preview-image {
+  max-width: 100%;
+  max-height: 512px;
+  align-self: flex-start;
+  border-radius: 6px;
+}
+
 .generate-log {
   font-family: "SF Mono", Menlo, monospace;
   font-size: 12px;

@@ -45,6 +45,10 @@ export function GenerateDeck() {
   const [generateImages, setGenerateImages] = useState(false);
   const [imageBackend, setImageBackend] = useState<"gemini" | "mock">("gemini");
   const [busy, setBusy] = useState(false);
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewScene, setPreviewScene] = useState<string | null>(null);
+  const [previewHanzi, setPreviewHanzi] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
 
   // Live preview of how many entries from the chosen source are
@@ -68,6 +72,53 @@ export function GenerateDeck() {
 
   function appendLog(line: string) {
     setLog((prev) => [...prev, line]);
+  }
+
+  /**
+   * Render one card end-to-end (scene prompt → image-gen → preview) without
+   * touching Anki. Picks the first eligible entry from the active source so
+   * the user can sanity-check what their actor/set library produces.
+   */
+  async function preview() {
+    setPreviewBusy(true);
+    setPreviewUrl(null);
+    setPreviewScene(null);
+    setPreviewHanzi(null);
+    try {
+      const all = pickSource(source);
+      const candidate = all.find((entry) => {
+        const parts = parsePinyin(entry.pinyin);
+        if (!parts) return false;
+        return Boolean(actors[parts.initial]) && Boolean(sets[parts.final]);
+      });
+      if (!candidate) {
+        appendLog("preview: no eligible character — assign at least one actor + set pair");
+        return;
+      }
+      const parts = parsePinyin(candidate.pinyin)!;
+      const lib = resolveLibrary(parts, actors, sets)!;
+      const components = DECOMP[candidate.hanzi] ?? [];
+      const scene = buildScene({
+        actor: lib.actor,
+        components,
+        meaning: candidate.meaning,
+        pinyin: parts,
+        set: lib.set,
+      });
+      setPreviewHanzi(candidate.hanzi);
+      setPreviewScene(scene.short);
+      const gen = await generateScene({
+        backend: imageBackend,
+        prompt: scene.long,
+        refs: scene.refs.map((r) => r.dataUrl),
+      });
+      setPreviewUrl(gen.url);
+      appendLog(`preview: ${candidate.hanzi} → ${gen.url}`);
+    } catch (err) {
+      appendLog(`preview failed: ${(err as Error).message}`);
+    } finally {
+      setPreviewBusy(false);
+    }
   }
 
   async function build() {
@@ -272,15 +323,37 @@ export function GenerateDeck() {
           )}
         </div>
 
-        <button
-          className="primary"
-          onClick={build}
-          disabled={busy || !deckName.trim() || (onlyReady && eligibleStats.ready === 0)}
-          data-testid="generate-button"
-        >
-          {busy ? "Building…" : "Build & push to Anki"}
-        </button>
+        <div className="generate-actions">
+          <button
+            onClick={preview}
+            disabled={previewBusy || busy || eligibleStats.ready === 0}
+            data-testid="preview-button"
+            title="Render one sample card without pushing to Anki"
+          >
+            {previewBusy ? "Generating preview…" : "Preview one card"}
+          </button>
+          <button
+            className="primary"
+            onClick={build}
+            disabled={busy || previewBusy || !deckName.trim() || (onlyReady && eligibleStats.ready === 0)}
+            data-testid="generate-button"
+          >
+            {busy ? "Building…" : "Build & push to Anki"}
+          </button>
+        </div>
       </div>
+
+      {(previewUrl || previewScene) && (
+        <div className="preview-card" data-testid="preview-card">
+          <div className="preview-meta">
+            <strong>{previewHanzi}</strong>
+            <span className="muted">{previewScene}</span>
+          </div>
+          {previewUrl && (
+            <img src={previewUrl} alt={previewScene ?? ""} className="preview-image" />
+          )}
+        </div>
+      )}
 
       {log.length > 0 && (
         <pre className="generate-log" data-testid="generate-log">
