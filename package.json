@@ -1,0 +1,22 @@
+{
+  "name": "hmm-imagegen",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "web",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"bun run dev:server\" \"bun run dev:web\"",
+    "dev:web": "cd web && bun run dev",
+    "dev:server": "cd server && bun run dev",
+    "build": "cd web && bun run build",
+    "typecheck": "tsc --noEmit -p web && tsc --noEmit -p server",
+    "test": "cd web && bun run test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.7.2"
+  }
+}
