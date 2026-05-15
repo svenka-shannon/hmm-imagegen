@@ -2,29 +2,25 @@ import { useState } from "react";
 import { useActors, useSets } from "../lib/store";
 import { addNotes, createDeck, type AnkiNote } from "../../../src/anki-connect";
 import { parsePinyin, TONE_TO_ROOM } from "../../../src/pinyin";
+import {
+  fromFreq,
+  fromHeisig,
+  type FreqEntry,
+  type HeisigEntry,
+  type SourceList,
+  type UnifiedEntry,
+} from "../../../src/sources";
+import freqData from "../data/freq-top.json";
+import heisigData from "../data/heisig.json";
 
-type SourceList = "top-freq" | "heisig-rth";
+const FREQ_ENTRIES: UnifiedEntry[] = (freqData as FreqEntry[]).map(fromFreq);
+const HEISIG_ENTRIES: UnifiedEntry[] = (heisigData as HeisigEntry[])
+  .map(fromHeisig)
+  .filter((e): e is UnifiedEntry => e !== null);
 
-interface HanziEntry {
-  hanzi: string;
-  pinyin: string;
-  meaning: string;
-  /** Heisig RTH number, if from that source. */
-  heisig?: number;
+function pickSource(s: SourceList): UnifiedEntry[] {
+  return s === "heisig-rth" ? HEISIG_ENTRIES : FREQ_ENTRIES;
 }
-
-/**
- * Stub: in the real flow this comes from data/freq-top.json or
- * data/heisig-rth.json. For now we use a tiny demo list so the
- * deck-gen UI is exercisable end-to-end.
- */
-const DEMO_HANZI: HanziEntry[] = [
-  { hanzi: "妈", meaning: "mother", pinyin: "mā" },
-  { hanzi: "爸", meaning: "father", pinyin: "bà" },
-  { hanzi: "林", meaning: "forest", pinyin: "lín" },
-  { hanzi: "家", meaning: "home / family", pinyin: "jiā" },
-  { hanzi: "山", meaning: "mountain", pinyin: "shān" },
-];
 
 const DECK_NAME_DEFAULT = "HMM Generated Hanzi";
 
@@ -49,8 +45,7 @@ export function GenerateDeck() {
       await createDeck(deckName);
       appendLog("OK");
 
-      // Limit demo: only use cards we can resolve.
-      const picked = DEMO_HANZI.slice(0, count);
+      const picked = pickSource(source).slice(0, count);
       const notes: AnkiNote[] = [];
       for (const entry of picked) {
         const parts = parsePinyin(entry.pinyin);
