@@ -12,12 +12,37 @@
  * For now it just serves /health so the SPA can show "backend ok".
  */
 
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { generate, OUT_ROOT, type ImagegenRequest } from "./imagegen";
 
 const PORT = Number(process.env.PORT ?? 4400);
+
+// Server-side library storage. Survives browser clears + provides
+// cross-device sync. The image data URLs are large (~100KB each) so
+// keeping them off localStorage is also a quota win.
+const DATA_DIR = process.env.HMM_DATA_DIR ?? join(import.meta.dir, "../data/uploads");
+const LIBRARY_PATH = join(DATA_DIR, "library.json");
+
+interface Library {
+  actors?: Record<string, unknown>;
+  sets?: Record<string, unknown>;
+  updatedAt?: string;
+}
+
+async function readLibrary(): Promise<Library> {
+  try {
+    const raw = await readFile(LIBRARY_PATH, "utf8");
+    return JSON.parse(raw) as Library;
+  } catch {
+    return {};
+  }
+}
+async function writeLibrary(lib: Library): Promise<void> {
+  await mkdir(DATA_DIR, { recursive: true });
+  await writeFile(LIBRARY_PATH, JSON.stringify({ ...lib, updatedAt: new Date().toISOString() }, null, 2));
+}
 
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Headers": "Content-Type",
@@ -34,6 +59,24 @@ const server = Bun.serve({
 
     if (url.pathname === "/health") {
       return Response.json({ status: "ok", uptime: process.uptime() }, { headers: CORS });
+    }
+
+    // Library persistence (server-side mirror of the SPA's actor + set
+    // library so it survives browser clears + works cross-device).
+    if (url.pathname === "/api/library") {
+      if (req.method === "GET") {
+        const lib = await readLibrary();
+        return Response.json(lib, { headers: CORS });
+      }
+      if (req.method === "POST" || req.method === "PUT") {
+        try {
+          const body = (await req.json()) as Library;
+          await writeLibrary(body);
+          return Response.json({ ok: true }, { headers: CORS });
+        } catch (err) {
+          return Response.json({ error: (err as Error).message }, { headers: CORS, status: 400 });
+        }
+      }
     }
     if (url.pathname === "/api/source/lists") {
       return Response.json(
