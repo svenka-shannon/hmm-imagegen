@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FINALS, type Final, TONE_TO_ROOM } from "../../../src/pinyin";
 import { useSets } from "../lib/store";
+import { PrepDeckButton } from "../components/PrepDeckButton";
 
 interface Props {
   readonly onComplete: () => void;
@@ -110,6 +111,8 @@ export function SetsWizard({ onComplete }: Props) {
           onClose={() => setOpenFinal(null)}
         />
       )}
+
+      <PrepDeckButton />
 
       <footer className="wizard-footer">
         <button

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { INITIALS, type Initial, type ActorCategory } from "../../../src/pinyin";
 import { useActors } from "../lib/store";
+import { PrepDeckButton } from "../components/PrepDeckButton";
 
 interface Props {
   readonly onComplete: () => void;
@@ -72,6 +73,8 @@ export function ActorsWizard({ onComplete }: Props) {
           onClose={() => setOpenInitial(null)}
         />
       )}
+
+      <PrepDeckButton />
 
       <footer className="wizard-footer">
         <button

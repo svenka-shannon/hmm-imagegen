@@ -46,6 +46,7 @@ export function GenerateDeck() {
   const [imageBackend, setImageBackend] = useState<"gemini" | "mock">("gemini");
   const [imageModel, setImageModel] = useState("gemini-2.5-flash-image");
   const [stylePrefix, setStylePrefix] = useState(() => localStorage.getItem("hmm.stylePrefix") ?? "");
+  const [forceUpdate, setForceUpdate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [previewBusy, setPreviewBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -210,9 +211,13 @@ export function GenerateDeck() {
       // When image-gen is on, readiness ALSO requires ref images for
       // the actor + set (HMM rule: scenes must be based on YOUR refs,
       // not a generic kitchen).
+      // forceUpdate is the opt-in escape hatch — when ON, existing
+      // hanzi are eligible too. This RESETS their review schedule in
+      // Anki, so it's off by default (admin spec: "When images change
+      // or get added we shouldn't update the card statuses").
       const all = pickSource(source);
       const filtered = all.filter((entry) => {
-        if (existing.has(entry.hanzi)) return false;
+        if (!forceUpdate && existing.has(entry.hanzi)) return false;
         if (!onlyReady && !generateImages) return true;
         return isCardReady(entry, generateImages);
       });
@@ -350,6 +355,16 @@ export function GenerateDeck() {
             data-testid="only-ready-checkbox"
           />
           Only include hanzi whose actor + set are ready
+        </label>
+
+        <label className="checkbox-row" title="Default OFF — re-runs are additive, existing cards' review schedules are untouched. Turn ON to refresh images on existing cards (resets their schedule).">
+          <input
+            type="checkbox"
+            checked={forceUpdate}
+            onChange={(e) => setForceUpdate(e.target.checked)}
+            data-testid="force-update-checkbox"
+          />
+          Force-refresh existing cards (resets review schedule)
         </label>
 
         <label className="checkbox-row">

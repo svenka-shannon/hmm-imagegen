@@ -229,6 +229,23 @@ button.primary:hover:not(:disabled) { filter: brightness(1.05); }
 .room-label { display: flex; flex-direction: column; }
 .room-preview { max-width: 60px; max-height: 60px; border-radius: 3px; object-fit: cover; }
 
+.prep-deck-section {
+  margin: 24px 0 8px;
+  padding: 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.prep-deck-section h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+.prep-deck-section p { margin: 0 0 12px; font-size: 13px; }
+.prep-deck-section button { margin-top: 8px; }
+
 .wizard-footer {
   margin-top: 24px;
   padding-top: 16px;
