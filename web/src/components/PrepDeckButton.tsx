@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { useActors, useSets } from "../lib/store";
 import { syncPrepDeck } from "../lib/prep-deck";
+import { useAnkiHealth } from "./AnkiHealthBanner";
 
 export function PrepDeckButton() {
+  const ankiHealth = useAnkiHealth();
+  const ankiReady = ankiHealth?.connected === true;
   const { actors } = useActors();
   const { sets } = useSets();
   const [busy, setBusy] = useState(false);
@@ -42,12 +45,25 @@ export function PrepDeckButton() {
       </label>
       <button
         onClick={push}
-        disabled={busy}
+        disabled={busy || !ankiReady}
         className="primary"
         data-testid="push-prep-button"
+        title={!ankiReady ? "AnkiConnect not reachable" : undefined}
       >
-        {busy ? "Pushing…" : "Push to HMM Prep deck"}
+        {busy ? (
+          <>
+            <span className="spinner" /> Pushing…
+          </>
+        ) : (
+          "Push to HMM Prep deck"
+        )}
       </button>
+      {!ankiReady && (
+        <div className="error-banner" style={{ marginTop: 8 }}>
+          <strong>Anki not reachable.</strong> Start Anki desktop with the
+          AnkiConnect add-on installed first.
+        </div>
+      )}
       {log.length > 0 && (
         <pre className="generate-log" data-testid="prep-log">
           {log.join("\n")}

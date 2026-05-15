@@ -8,6 +8,7 @@ import {
   type AnkiNote,
 } from "../../../src/anki-connect";
 import { fetchAsBase64, generateScene } from "../lib/imagegen-client";
+import { useAnkiHealth } from "../components/AnkiHealthBanner";
 import { parsePinyin } from "../../../src/pinyin";
 import { buildScene, estimateCost, resolveLibrary } from "../../../src/scene-prompt";
 import {
@@ -36,6 +37,8 @@ function pickSource(s: SourceList): UnifiedEntry[] {
 const DECK_NAME_DEFAULT = "HMM Generated Hanzi";
 
 export function GenerateDeck() {
+  const ankiHealth = useAnkiHealth();
+  const ankiReady = ankiHealth?.connected === true;
   const { actors } = useActors();
   const { sets } = useSets();
   const [source, setSource] = useState<SourceList>("top-freq");
@@ -465,17 +468,39 @@ export function GenerateDeck() {
             data-testid="preview-button"
             title="Render one sample card without pushing to Anki"
           >
-            {previewBusy ? "Generating preview…" : "Preview one card"}
+            {previewBusy ? (
+              <>
+                <span className="spinner" /> Generating preview…
+              </>
+            ) : (
+              "Preview one card"
+            )}
           </button>
           <button
             className="primary"
             onClick={build}
-            disabled={busy || previewBusy || !deckName.trim() || (onlyReady && eligibleStats.ready === 0)}
+            disabled={busy || previewBusy || !deckName.trim() || (onlyReady && eligibleStats.ready === 0) || !ankiReady}
             data-testid="generate-button"
+            title={!ankiReady ? "AnkiConnect not reachable — start Anki desktop with the AnkiConnect add-on installed" : undefined}
           >
-            {busy ? "Building…" : "Build & push to Anki"}
+            {busy ? (
+              <>
+                <span className="spinner" /> Building…
+              </>
+            ) : (
+              "Build & push to Anki"
+            )}
           </button>
         </div>
+
+        {!ankiReady && (
+          <div className="error-banner" data-testid="anki-not-ready-banner">
+            <strong>⚠ Anki not reachable.</strong> Start Anki desktop and
+            install the <a href="https://foosoft.net/projects/anki-connect/" target="_blank" rel="noreferrer">AnkiConnect</a> add-on
+            (code <code>2055492159</code>) before building. The wizard works
+            without it, but the final push will fail.
+          </div>
+        )}
       </div>
 
       {(previewUrl || previewScene) && (
