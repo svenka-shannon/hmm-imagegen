@@ -22,48 +22,91 @@ const SUGGESTED_CATEGORY: Record<Initial, ActorCategory> = {
   "∅": "man",
 };
 
+const CATEGORY_LABEL: Record<ActorCategory, string> = {
+  fictional: "Fictional characters",
+  "god-or-leader": "Gods or world leaders",
+  man: "Men in your life",
+  woman: "Women in your life",
+};
+const CATEGORY_BLURB: Record<ActorCategory, string> = {
+  fictional: "Memorable fictional people: Sherlock Holmes, Spider-Man, Frodo, Hermione.",
+  "god-or-leader": "Larger-than-life figures: Zeus, Obama, Mandela, the Buddha, Beyoncé.",
+  man: "Real men from your life: dad, brother, college roommate, your weird uncle.",
+  woman: "Real women from your life: mom, sister, best friend, that one coworker.",
+};
+const CATEGORY_ORDER: ActorCategory[] = ["man", "woman", "fictional", "god-or-leader"];
+
 export function ActorsWizard({ onComplete }: Props) {
   const { actors, setActor } = useActors();
   const [openInitial, setOpenInitial] = useState<Initial | null>(null);
 
   const filled = INITIALS.filter((i) => actors[i]?.name).length;
 
+  // Group initials by Mandarin Blueprint's actor category so the user
+  // sees them as ONE small bucket per group rather than 22 cards in
+  // one big grid.
+  const byCategory: Record<ActorCategory, Initial[]> = {
+    fictional: [],
+    "god-or-leader": [],
+    man: [],
+    woman: [],
+  };
+  for (const i of INITIALS) byCategory[SUGGESTED_CATEGORY[i]].push(i);
+
   return (
     <div className="wizard">
       <header className="wizard-header">
         <h1>Step 1 — Actors (Pinyin initials)</h1>
         <p>
-          Pick a memorable real or fictional person for each initial. The more
-          distinctive, the better. Each actor will star in every hanzi whose
-          pinyin starts with that initial.
+          Pick a memorable real or fictional person for each Pinyin initial.
+          Each actor will star in every hanzi whose pinyin starts with that
+          initial — so they should be people you have strong, distinct visual
+          memories of.
         </p>
-        <p className="muted">{filled} / {INITIALS.length} assigned</p>
+        <p className="muted">
+          Progress: <strong>{filled}</strong> / {INITIALS.length} assigned —{" "}
+          {INITIALS.length - filled === 0
+            ? "you're done!"
+            : `${INITIALS.length - filled} to go`}
+        </p>
       </header>
 
-      <div className="initial-grid">
-        {INITIALS.map((initial) => {
-          const a = actors[initial];
-          return (
-            <button
-              key={initial}
-              className={`initial-card ${a?.name ? "filled" : "empty"}`}
-              onClick={() => setOpenInitial(initial)}
-              data-testid={`initial-card-${initial}`}
-            >
-              {a?.imageDataUrl && (
-                <img src={a.imageDataUrl} alt="" className="initial-card-thumb" />
-              )}
-              <div className="initial-glyph">{initial}</div>
-              <div className="initial-actor-name">
-                {a?.name ?? <span className="empty-cta">+ Click to assign</span>}
-              </div>
-              <div className="initial-category-hint">
-                ({SUGGESTED_CATEGORY[initial]})
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      {CATEGORY_ORDER.map((cat) => {
+        const slots = byCategory[cat];
+        const catFilled = slots.filter((i) => actors[i]?.name).length;
+        return (
+          <section key={cat} className="actor-category-section">
+            <header className="actor-category-header">
+              <h2>{CATEGORY_LABEL[cat]}</h2>
+              <span className="actor-category-progress">
+                {catFilled} / {slots.length}
+              </span>
+            </header>
+            <p className="actor-category-blurb">{CATEGORY_BLURB[cat]}</p>
+            <div className="initial-grid">
+              {slots.map((initial) => {
+                const a = actors[initial];
+                return (
+                  <button
+                    key={initial}
+                    className={`initial-card ${a?.name ? "filled" : "empty"}`}
+                    onClick={() => setOpenInitial(initial)}
+                    data-testid={`initial-card-${initial}`}
+                  >
+                    {a?.imageDataUrl && (
+                      <img src={a.imageDataUrl} alt="" className="initial-card-thumb" />
+                    )}
+                    <div className="initial-glyph">{initial}</div>
+                    <div className="initial-actor-name">
+                      {a?.name ?? <span className="empty-cta">+ Click to assign</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
 
       {openInitial && (
         <ActorDialog

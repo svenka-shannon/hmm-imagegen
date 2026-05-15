@@ -1,8 +1,11 @@
+import { useAnkiHealth } from "../components/AnkiHealthBanner";
+
 interface Props {
   readonly onStart: () => void;
 }
 
 export function Welcome({ onStart }: Props) {
+  const ankiHealth = useAnkiHealth();
   return (
     <div className="welcome">
       <div className="welcome-hero">
@@ -15,6 +18,25 @@ export function Welcome({ onStart }: Props) {
         <button className="primary big" onClick={onStart} data-testid="start-button">
           Begin setup →
         </button>
+        <div className="welcome-preflight" data-testid="preflight">
+          {ankiHealth?.connected ? (
+            <span className="preflight-ok">
+              ✓ AnkiConnect v{ankiHealth.version} reachable — you're good to go.
+            </span>
+          ) : ankiHealth ? (
+            <span className="preflight-warn">
+              ⚠ Anki desktop + AnkiConnect not detected on port 8765. You can
+              still walk through the wizard, but the final "push to Anki" step
+              will fail until you{" "}
+              <a href="https://foosoft.net/projects/anki-connect/" target="_blank" rel="noreferrer">
+                install AnkiConnect
+              </a>{" "}
+              (code <code>2055492159</code>) and start Anki.
+            </span>
+          ) : (
+            <span className="muted">checking for Anki…</span>
+          )}
+        </div>
       </div>
 
       <div className="welcome-steps">
