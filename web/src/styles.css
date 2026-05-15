@@ -287,6 +287,17 @@ button.primary:hover:not(:disabled) { filter: brightness(1.05); }
 }
 .cost-estimate strong { color: var(--accent); }
 
+.fidelity-warning {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  padding: 8px 12px;
+  background: rgba(214, 166, 71, 0.12);
+  border: 1px solid var(--warn);
+  border-radius: 4px;
+  color: var(--fg);
+}
+.fidelity-warning strong { color: var(--warn); }
+
 .eligibility-stats {
   grid-column: 1 / -1;
   font-size: 13px;

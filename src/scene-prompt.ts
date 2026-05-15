@@ -103,9 +103,31 @@ export function buildScene(opts: SceneBuildOpts): SceneOutput {
   const baseStyle = stylePrefix?.trim()
     ? `${stylePrefix.trim()}.`
     : `Photorealistic snapshot.`;
+  // FIDELITY: cite the supplied reference images by 1-based index so
+  // Gemini's multi-image conditioning binds the actor + room + props to
+  // the user's actual photos. Indices must match the order refs are
+  // emitted into SceneOutput.refs below.
+  const refCitations: string[] = [];
+  let nextRefIdx = 1;
+  if (actor.imageDataUrl) {
+    refCitations.push(`${actor.name} must match reference image ${nextRefIdx++} (same face, same body type, recognisably the same person)`);
+  }
+  const roomUrlPreview = set.rooms?.[pinyin.tone];
+  if (roomUrlPreview) {
+    refCitations.push(`the ${room} must match reference image ${nextRefIdx++} (same interior, same fixtures, same layout)`);
+  } else if (set.exteriorDataUrl) {
+    refCitations.push(`${set.name} (use the exterior in reference image ${nextRefIdx++} as a vibe anchor for the building)`);
+  }
+  for (const p of props) {
+    if (p.imageDataUrl) refCitations.push(`the ${p.prop} should look like reference image ${nextRefIdx++}`);
+  }
+
   const long = [
     `${baseStyle} No text, no captions, no labels, no logos, no overlays.`,
     `${actor.name} is in the ${room} of ${set.name}.`,
+    refCitations.length > 0
+      ? `Critical for consistency across cards: ${joinList(refCitations)}.`
+      : "",
     concreteProps.length > 0
       ? `Visible objects in the scene: ${joinList(concreteProps)}.`
       : "",

@@ -72,6 +72,29 @@ export function GenerateDeck() {
     return { ready, total: all.length, unreadyForInitial, unreadyForFinal };
   })();
 
+  // Fidelity check — count actor/set slots that have a reference image.
+  // Surfaced as a warning when image-gen is on so the user knows
+  // consistency-across-cards will be weaker without refs.
+  const refStats = (() => {
+    let actorsWithRef = 0;
+    let actorsTotal = 0;
+    let setsWithRef = 0;
+    let setsTotal = 0;
+    for (const a of Object.values(actors)) {
+      if (!a) continue;
+      actorsTotal++;
+      if (a.imageDataUrl) actorsWithRef++;
+    }
+    for (const s of Object.values(sets)) {
+      if (!s) continue;
+      setsTotal++;
+      // A set "has a ref" if it has at least one room OR an exterior.
+      const hasAnyRoom = s.rooms && Object.values(s.rooms).some((u) => Boolean(u));
+      if (hasAnyRoom || s.exteriorDataUrl) setsWithRef++;
+    }
+    return { actorsWithRef, actorsTotal, setsTotal, setsWithRef };
+  })();
+
   function appendLog(line: string) {
     setLog((prev) => [...prev, line]);
   }
@@ -371,6 +394,12 @@ export function GenerateDeck() {
             </div>
           );
         })()}
+
+        {generateImages && (refStats.actorsWithRef < refStats.actorsTotal || refStats.setsWithRef < refStats.setsTotal) && (
+          <div className="fidelity-warning" data-testid="fidelity-warning">
+            <strong>⚠ Fidelity warning</strong> · {refStats.actorsWithRef}/{refStats.actorsTotal} actors and {refStats.setsWithRef}/{refStats.setsTotal} sets have reference images. Cards using slots without refs will have weak character/location consistency across the deck. Upload more refs in steps 1-2 for better results.
+          </div>
+        )}
 
         <div className="generate-actions">
           <button

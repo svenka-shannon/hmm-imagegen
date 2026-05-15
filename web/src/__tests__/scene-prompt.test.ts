@@ -60,6 +60,10 @@ describe("buildScene", () => {
     expect(scene.refs).toHaveLength(2);
     expect(scene.refs[0]).toMatchObject({ kind: "actor" });
     expect(scene.refs[1]).toMatchObject({ kind: "room" });
+    // Fidelity citation by index in the long prompt
+    expect(scene.long).toContain("reference image 1");
+    expect(scene.long).toContain("reference image 2");
+    expect(scene.long).toContain("must match");
   });
 });
 
