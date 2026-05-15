@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useActors, useSets } from "../lib/store";
-import { addNotes, createDeck, deckFieldValues, type AnkiNote } from "../../../src/anki-connect";
+import {
+  addNotes,
+  createDeck,
+  deckFieldValues,
+  storeMediaFile,
+  type AnkiNote,
+} from "../../../src/anki-connect";
+import { fetchAsBase64, generateScene } from "../lib/imagegen-client";
 import { parsePinyin } from "../../../src/pinyin";
 import { buildScene, resolveLibrary } from "../../../src/scene-prompt";
 import {
@@ -35,6 +42,8 @@ export function GenerateDeck() {
   const [count, setCount] = useState(20);
   const [deckName, setDeckName] = useState(DECK_NAME_DEFAULT);
   const [onlyReady, setOnlyReady] = useState(true);
+  const [generateImages, setGenerateImages] = useState(false);
+  const [imageBackend, setImageBackend] = useState<"gemini" | "mock">("gemini");
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string[]>([]);
 
@@ -122,11 +131,33 @@ export function GenerateDeck() {
           set: lib.set,
         });
         appendLog(`  ${entry.hanzi} (${entry.pinyin}) → ${scene.short}`);
+
+        // Optional image generation. One scene per card. Failures are
+        // non-fatal — the note still gets pushed without an image so the
+        // user has a usable card and can re-generate later.
+        let imageTag = "";
+        if (generateImages) {
+          try {
+            const gen = await generateScene({
+              backend: imageBackend,
+              prompt: scene.long,
+              refs: scene.refs.map((r) => r.dataUrl),
+            });
+            const base64 = await fetchAsBase64(gen.url);
+            const ankiFilename = `hmm-${entry.hanzi}-${parts.tone}-${Date.now()}.png`;
+            await storeMediaFile(ankiFilename, base64);
+            imageTag = `<div><img src="${ankiFilename}" style="max-width: 400px"></div>`;
+            appendLog(`     ↳ generated image (${ankiFilename})`);
+          } catch (err) {
+            appendLog(`     ↳ image-gen failed: ${(err as Error).message}`);
+          }
+        }
+
         notes.push({
           deckName,
           fields: {
             Front: entry.hanzi,
-            Back: `<div><strong>${entry.pinyin}</strong></div><div>${entry.meaning}</div><div><em>${scene.short}</em></div>`,
+            Back: `${imageTag}<div><strong>${entry.pinyin}</strong></div><div>${entry.meaning}</div><div><em>${scene.short}</em></div>`,
             Components: components.join(""),
             Hanzi: entry.hanzi,
             Meaning: entry.meaning,
@@ -205,6 +236,30 @@ export function GenerateDeck() {
           />
           Only include hanzi whose actor + set are ready
         </label>
+
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={generateImages}
+            onChange={(e) => setGenerateImages(e.target.checked)}
+            data-testid="generate-images-checkbox"
+          />
+          Generate scene images (Gemini / nano-banana)
+        </label>
+
+        {generateImages && (
+          <label>
+            Image backend
+            <select
+              value={imageBackend}
+              onChange={(e) => setImageBackend(e.target.value as "gemini" | "mock")}
+              data-testid="image-backend-select"
+            >
+              <option value="gemini">Gemini (nano-banana)</option>
+              <option value="mock">Mock (1x1 PNG, no API calls)</option>
+            </select>
+          </label>
+        )}
 
         <div className="eligibility-stats" data-testid="eligibility-stats">
           <strong>{eligibleStats.ready}</strong> / {eligibleStats.total} eligible
