@@ -3,7 +3,7 @@ import { INITIALS, type Initial, type ActorCategory } from "../../../src/pinyin"
 import { useActors } from "../lib/store";
 import { PrepDeckButton } from "../components/PrepDeckButton";
 import { LibraryIO } from "../components/LibraryIO";
-import { useEscape } from "../lib/use-escape";
+import { useModal } from "../lib/use-modal";
 
 interface Props {
   readonly onComplete: () => void;
@@ -148,7 +148,7 @@ interface ActorDialogProps {
 }
 
 function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
-  useEscape(onClose);
+  const modalRef = useModal(onClose);
   const [name, setName] = useState(current?.name ?? "");
   const [category, setCategory] = useState<ActorCategory>(
     current?.category ?? SUGGESTED_CATEGORY[initial],
@@ -169,8 +169,15 @@ function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>
+      <div
+        className="modal"
+        onClick={(e) => e.stopPropagation()}
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`actor-dialog-title-${initial}`}
+      >
+        <h2 id={`actor-dialog-title-${initial}`}>
           Actor for initial <code className="big">{initial}-</code>
         </h2>
         <label>

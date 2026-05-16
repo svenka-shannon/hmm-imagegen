@@ -106,6 +106,21 @@ function tryServerLoad(
   });
 }
 
+/**
+ * Test-only: re-read localStorage into the module singletons and reset
+ * the first-load latch. Call from `beforeEach` after `localStorage.clear()`
+ * so a fresh test doesn't see stale state from a previous test.
+ */
+export function _resetStoreForTests(): void {
+  liveActors = loadJSON(ACTORS_KEY, {});
+  liveSets = loadJSON(SETS_KEY, {});
+  firstLoadStarted = false;
+  if (pushTimer) {
+    clearTimeout(pushTimer);
+    pushTimer = null;
+  }
+}
+
 export function useActors() {
   const [actors, setActors] = useState<Partial<Record<Initial, ActorAssignment>>>(
     () => liveActors,

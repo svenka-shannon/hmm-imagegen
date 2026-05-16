@@ -1,10 +1,11 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useActors, useSets } from "../lib/store";
+import { _resetStoreForTests, useActors, useSets } from "../lib/store";
 
 describe("library store hooks", () => {
   beforeEach(() => {
     localStorage.clear();
+    _resetStoreForTests();
     // Stub fetch so the debounced server sync doesn't try to reach
     // the bun server during tests.
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })));

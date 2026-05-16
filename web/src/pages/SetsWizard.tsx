@@ -3,7 +3,7 @@ import { FINALS, type Final, TONE_TO_ROOM } from "../../../src/pinyin";
 import { useSets } from "../lib/store";
 import { PrepDeckButton } from "../components/PrepDeckButton";
 import { LibraryIO } from "../components/LibraryIO";
-import { useEscape } from "../lib/use-escape";
+import { useModal } from "../lib/use-modal";
 
 interface Props {
   readonly onComplete: () => void;
@@ -154,7 +154,7 @@ interface SetDialogProps {
 }
 
 function SetDialog({ final, current, onSave, onClose }: SetDialogProps) {
-  useEscape(onClose);
+  const modalRef = useModal(onClose);
   const [name, setName] = useState(current?.name ?? "");
   const [exteriorDataUrl, setExteriorDataUrl] = useState<string | undefined>(
     current?.exteriorDataUrl,
@@ -171,8 +171,15 @@ function SetDialog({ final, current, onSave, onClose }: SetDialogProps) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-        <h2>
+      <div
+        className="modal modal-wide"
+        onClick={(e) => e.stopPropagation()}
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`set-dialog-title-${final}`}
+      >
+        <h2 id={`set-dialog-title-${final}`}>
           Set for final <code className="big">-{final}</code>
         </h2>
         <label>
