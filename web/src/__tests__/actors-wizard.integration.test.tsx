@@ -1,5 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// Mock the AnkiHealth poller so the integration test doesn't fire
+// async setState updates outside of act() while the wizard is mounted.
+vi.mock("../components/AnkiHealthBanner", () => ({
+  AnkiHealthBanner: () => null,
+  useAnkiHealth: () => null,
+  _stopPollerForTests: () => {},
+}));
 import { ActorsWizard } from "../pages/ActorsWizard";
 import { _resetStoreForTests } from "../lib/store";
 

@@ -7,6 +7,7 @@ import { checkHealth, type AnkiHealth } from "../../../src/anki-connect";
 let cached: AnkiHealth | null = null;
 const subs = new Set<(h: AnkiHealth | null) => void>();
 let pollerStarted = false;
+let pollerTimer: ReturnType<typeof setInterval> | null = null;
 
 function startPoller() {
   if (pollerStarted) return;
@@ -17,7 +18,22 @@ function startPoller() {
     for (const s of subs) s(res);
   };
   void tick();
-  setInterval(tick, 8000);
+  pollerTimer = setInterval(tick, 8000);
+}
+
+/**
+ * Test-only: stop the module-level poller so React doesn't warn about
+ * out-of-act state updates when a test unmounts mid-poll. Call from
+ * `afterEach`.
+ */
+export function _stopPollerForTests(): void {
+  if (pollerTimer) {
+    clearInterval(pollerTimer);
+    pollerTimer = null;
+  }
+  pollerStarted = false;
+  cached = null;
+  subs.clear();
 }
 
 export function useAnkiHealth(): AnkiHealth | null {
