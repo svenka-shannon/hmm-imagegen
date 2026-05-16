@@ -3,6 +3,7 @@ import { FINALS, type Final, TONE_TO_ROOM } from "../../../src/pinyin";
 import { useSets } from "../lib/store";
 import { PrepDeckButton } from "../components/PrepDeckButton";
 import { LibraryIO } from "../components/LibraryIO";
+import { useEscape } from "../lib/use-escape";
 
 interface Props {
   readonly onComplete: () => void;
@@ -153,6 +154,7 @@ interface SetDialogProps {
 }
 
 function SetDialog({ final, current, onSave, onClose }: SetDialogProps) {
+  useEscape(onClose);
   const [name, setName] = useState(current?.name ?? "");
   const [exteriorDataUrl, setExteriorDataUrl] = useState<string | undefined>(
     current?.exteriorDataUrl,

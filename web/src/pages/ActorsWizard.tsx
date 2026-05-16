@@ -3,6 +3,7 @@ import { INITIALS, type Initial, type ActorCategory } from "../../../src/pinyin"
 import { useActors } from "../lib/store";
 import { PrepDeckButton } from "../components/PrepDeckButton";
 import { LibraryIO } from "../components/LibraryIO";
+import { useEscape } from "../lib/use-escape";
 
 interface Props {
   readonly onComplete: () => void;
@@ -147,6 +148,7 @@ interface ActorDialogProps {
 }
 
 function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
+  useEscape(onClose);
   const [name, setName] = useState(current?.name ?? "");
   const [category, setCategory] = useState<ActorCategory>(
     current?.category ?? SUGGESTED_CATEGORY[initial],
