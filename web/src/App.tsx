@@ -1,9 +1,15 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { ActorsWizard } from "./pages/ActorsWizard";
 import { SetsWizard } from "./pages/SetsWizard";
-import { GenerateDeck } from "./pages/GenerateDeck";
 import { Welcome } from "./pages/Welcome";
 import { AnkiHealthBanner } from "./components/AnkiHealthBanner";
+
+// GenerateDeck pulls the entire freq-top + heisig + decomp JSON bundle
+// (~1.1MB combined). Lazy-load it so the welcome/actors/sets steps
+// don't pay for it.
+const GenerateDeck = lazy(() =>
+  import("./pages/GenerateDeck").then((m) => ({ default: m.GenerateDeck })),
+);
 
 type Step = "welcome" | "actors" | "sets" | "generate";
 
@@ -50,7 +56,11 @@ export function App() {
         {step === "welcome" && <Welcome onStart={() => setStep("actors")} />}
         {step === "actors" && <ActorsWizard onComplete={() => setStep("sets")} />}
         {step === "sets" && <SetsWizard onComplete={() => setStep("generate")} />}
-        {step === "generate" && <GenerateDeck />}
+        {step === "generate" && (
+          <Suspense fallback={<div className="muted">Loading generator…</div>}>
+            <GenerateDeck />
+          </Suspense>
+        )}
       </main>
     </div>
   );
