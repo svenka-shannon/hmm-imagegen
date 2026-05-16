@@ -552,6 +552,15 @@ button.primary:hover:not(:disabled) { filter: brightness(1.05); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.loading-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 24px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
 .error-banner {
   grid-column: 1 / -1;
   font-size: 13px;

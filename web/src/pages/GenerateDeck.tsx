@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useActors, useSets } from "../lib/store";
 import {
   addNotes,
@@ -19,19 +19,31 @@ import {
   type SourceList,
   type UnifiedEntry,
 } from "../../../src/sources";
-import freqData from "../data/freq-top.json";
-import heisigData from "../data/heisig.json";
-import decompData from "../data/decomp.json";
 
-const DECOMP = decompData as Record<string, string[]>;
+// The freq/heisig/decomp JSON together weigh ~1.1MB. We load them
+// asynchronously (Vite emits each as its own chunk) so navigating to
+// step 3 doesn't block on a 522KB freq-list when the user just wants
+// to see the source picker. Without this the GenerateDeck chunk
+// would be 800KB+ even after lazy-loading the page itself.
+interface LoadedData {
+  decomp: Record<string, string[]>;
+  freq: UnifiedEntry[];
+  heisig: UnifiedEntry[];
+}
 
-const FREQ_ENTRIES: UnifiedEntry[] = (freqData as FreqEntry[]).map(fromFreq);
-const HEISIG_ENTRIES: UnifiedEntry[] = (heisigData as HeisigEntry[])
-  .map(fromHeisig)
-  .filter((e): e is UnifiedEntry => e !== null);
-
-function pickSource(s: SourceList): UnifiedEntry[] {
-  return s === "heisig-rth" ? HEISIG_ENTRIES : FREQ_ENTRIES;
+async function loadData(): Promise<LoadedData> {
+  const [freqMod, heisigMod, decompMod] = await Promise.all([
+    import("../data/freq-top.json"),
+    import("../data/heisig.json"),
+    import("../data/decomp.json"),
+  ]);
+  return {
+    decomp: decompMod.default as Record<string, string[]>,
+    freq: (freqMod.default as FreqEntry[]).map(fromFreq),
+    heisig: (heisigMod.default as HeisigEntry[])
+      .map(fromHeisig)
+      .filter((e): e is UnifiedEntry => e !== null),
+  };
 }
 
 const DECK_NAME_DEFAULT = "HMM Generated Hanzi";
@@ -41,6 +53,15 @@ export function GenerateDeck() {
   const ankiReady = ankiHealth?.connected === true;
   const { actors } = useActors();
   const { sets } = useSets();
+  const [data, setData] = useState<LoadedData | null>(null);
+  const [dataError, setDataError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadData()
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch((err: Error) => { if (!cancelled) setDataError(err.message); });
+    return () => { cancelled = true; };
+  }, []);
   const [source, setSource] = useState<SourceList>("top-freq");
   const [count, setCount] = useState(20);
   const [deckName, setDeckName] = useState(DECK_NAME_DEFAULT);
@@ -81,6 +102,11 @@ export function GenerateDeck() {
     if (!actor.imageDataUrl) return false;
     if (!setHasRefForTone(set, parts.tone)) return false;
     return true;
+  }
+
+  function pickSource(s: SourceList): UnifiedEntry[] {
+    if (!data) return [];
+    return s === "heisig-rth" ? data.heisig : data.freq;
   }
 
   // Live preview of how many entries from the chosen source are
@@ -160,7 +186,7 @@ export function GenerateDeck() {
       }
       const parts = parsePinyin(candidate.pinyin)!;
       const lib = resolveLibrary(parts, actors, sets)!;
-      const components = DECOMP[candidate.hanzi] ?? [];
+      const components = data!.decomp[candidate.hanzi] ?? [];
       const scene = buildScene({
         actor: lib.actor,
         components,
@@ -243,7 +269,7 @@ export function GenerateDeck() {
           skipped++;
           continue;
         }
-        const components = DECOMP[entry.hanzi] ?? [];
+        const components = data!.decomp[entry.hanzi] ?? [];
         const scene = buildScene({
           actor: lib.actor,
           components,
@@ -303,6 +329,32 @@ export function GenerateDeck() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (dataError) {
+    return (
+      <div className="wizard">
+        <header className="wizard-header">
+          <h1>Step 3 — Generate Hanzi deck</h1>
+        </header>
+        <div className="error-banner">
+          <strong>Failed to load character data.</strong> {dataError}
+        </div>
+      </div>
+    );
+  }
+  if (!data) {
+    return (
+      <div className="wizard" data-testid="generate-loading">
+        <header className="wizard-header">
+          <h1>Step 3 — Generate Hanzi deck</h1>
+          <p className="muted">Loading character data…</p>
+        </header>
+        <div className="loading-row">
+          <span className="spinner" /> Loading freq + Heisig + decomp lists (~1MB)…
+        </div>
+      </div>
+    );
   }
 
   return (
