@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { INITIALS, type Initial, type ActorCategory } from "../../../src/pinyin";
+import { INITIALS, SUGGESTED_CATEGORY, type Initial, type ActorCategory } from "../../../src/pinyin";
 import { useActors } from "../lib/store";
 import { PrepDeckButton } from "../components/PrepDeckButton";
 import { LibraryIO } from "../components/LibraryIO";
@@ -9,34 +9,36 @@ interface Props {
   readonly onComplete: () => void;
 }
 
-const SUGGESTED_CATEGORY: Record<Initial, ActorCategory> = {
-  // Men
-  b: "man", p: "man", m: "man", f: "man",
-  // Women
-  d: "woman", t: "woman", n: "woman", l: "woman",
-  // Fictional
-  g: "fictional", k: "fictional", h: "fictional",
-  j: "fictional", q: "fictional", x: "fictional",
-  // Gods / world leaders
-  zh: "god-or-leader", ch: "god-or-leader", sh: "god-or-leader", r: "god-or-leader",
-  z: "god-or-leader", c: "god-or-leader", s: "god-or-leader",
-  // Null-initial — special; usually the user themselves or no actor
-  "∅": "man",
-};
-
 const CATEGORY_LABEL: Record<ActorCategory, string> = {
-  fictional: "Fictional characters",
-  "god-or-leader": "Gods or world leaders",
-  man: "Men in your life",
-  woman: "Women in your life",
+  fictional: "Fictional characters (initial + u)",
+  "god-or-leader": "Gods or world leaders (initial + ü)",
+  man: "Men in your life (bare initial)",
+  woman: "Women in your life (initial + i)",
 };
 const CATEGORY_BLURB: Record<ActorCategory, string> = {
-  fictional: "Memorable fictional people: Sherlock Holmes, Spider-Man, Frodo, Hermione.",
+  fictional: "Memorable fictional/supernatural characters: Sherlock, Spider-Man, Frodo, Hermione, Hulk.",
   "god-or-leader": "Larger-than-life figures: Zeus, Obama, Mandela, the Buddha, Beyoncé.",
   man: "Real men from your life: dad, brother, college roommate, your weird uncle.",
   woman: "Real women from your life: mom, sister, best friend, that one coworker.",
 };
 const CATEGORY_ORDER: ActorCategory[] = ["man", "woman", "fictional", "god-or-leader"];
+
+/** Render the initial with a separator dot for the +i / +u / +ü variants
+ *  so e.g. "bi" displays as "b·i" (clearer than "bi-" alone). */
+function displayInitial(init: Initial): string {
+  if (init === "∅") return "∅";
+  if (init === "∅i") return "∅·i";
+  if (init === "∅u") return "∅·u";
+  if (init === "∅ü") return "∅·ü";
+  if (init.endsWith("ü")) return `${init.slice(0, -1)}·ü`;
+  // bi / pi / etc — only flag the medial if there are >=2 chars and
+  // the last char is i or u AND it isn't a bare initial like zh/ch/sh.
+  const lastChar = init.slice(-1);
+  if ((lastChar === "i" || lastChar === "u") && init.length >= 2 && !["zh", "ch", "sh"].includes(init)) {
+    return `${init.slice(0, -1)}·${lastChar}-`;
+  }
+  return `${init}-`;
+}
 
 export function ActorsWizard({ onComplete }: Props) {
   const { actors, setActor } = useActors();
@@ -98,7 +100,7 @@ export function ActorsWizard({ onComplete }: Props) {
                     {(a?.imageDataUrls?.[0] ?? a?.imageDataUrl) && (
                       <img src={a?.imageDataUrls?.[0] ?? a?.imageDataUrl} alt="" className="initial-card-thumb" />
                     )}
-                    <div className="initial-glyph">{initial}</div>
+                    <div className="initial-glyph">{displayInitial(initial)}</div>
                     <div className="initial-actor-name">
                       {a?.name ?? <span className="empty-cta">+ Click to assign</span>}
                     </div>
@@ -200,7 +202,7 @@ function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
         aria-labelledby={`actor-dialog-title-${initial}`}
       >
         <h2 id={`actor-dialog-title-${initial}`}>
-          Actor for initial <code className="big">{initial}-</code>
+          Actor for initial <code className="big">{displayInitial(initial)}</code>
         </h2>
         <label>
           Name

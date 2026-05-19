@@ -1,82 +1,124 @@
 /**
- * Pinyin initials and finals as used by the Hanzi Movie Method (HMM).
+ * Pinyin initials and finals as used by the Hanzi Movie Method (HMM),
+ * per Mandarin Blueprint's canonical chart:
+ * https://www.mandarinblueprint.com/blog/new-pinyin-chart/
  *
- * Standard Mandarin has ~23 initials + ~37 finals if you count every
- * orthographic variant. Mandarin Blueprint's HMM consolidates these
- * into a smaller set that maps cleanly onto a learner's personal
- * actor library (initials) and set library (finals):
+ * STANDARD pinyin: 21 initials × 36 finals — uneven (too many places
+ * to memorise, too few faces). MB rebalances by moving the medials
+ * "i", "u", "ü" out of finals and into initials, giving:
  *
- * - 21 INITIALS (one actor each) — the consonant onset.
- *   Plus a "∅" null-initial for syllables that start with a vowel.
- * - 13 FINALS (one set each) — the rime/nucleus+coda.
+ *   55 INITIALS (one actor each) × 13 FINALS (one set each) + Ø final
  *
- * Tones are encoded by which ROOM of the set the action happens in
- * (entrance / kitchen / bedroom / bathroom / roof for tones 1-5).
+ * Initial categories follow the suffix vowel:
+ *   - bare consonant  → MAN          (b-, p-, m-, …)
+ *   - +i              → WOMAN        (bi-, pi-, mi-, …)
+ *   - +u              → FICTIONAL    (bu-, pu-, mu-, …)
+ *   - +ü              → GOD/LEADER   (nü-, lü-, jü-, …)
  *
- * Sources: mandarinblueprint.com/blog/new-pinyin-chart/
+ * Not all 22 consonants × 4 vowel-suffixes exist in Mandarin (e.g. no
+ * "fi-", no "zü-"). The chart's populated cells sum to exactly 55.
+ *
+ * Tones are mapped to rooms inside the chosen set: tone 1 = entrance,
+ * tone 2 = kitchen, tone 3 = bedroom, tone 4 = bathroom, tone 5 (neutral)
+ * = roof.
  */
 
-/** All 21 standard Mandarin initials + a null-initial slot. */
-export const INITIALS = [
-  "b", "p", "m", "f",
-  "d", "t", "n", "l",
+// ----------------------------------------------------------------
+// 55 INITIALS, ordered by category for the ActorsWizard UI.
+// ----------------------------------------------------------------
+
+/** Bare-consonant initials (no medial vowel) — MAN category. */
+const BARE_INITIALS = [
+  "∅", "b", "p", "m", "f", "d", "t", "n", "l",
+  "z", "c", "s", "zh", "ch", "sh", "r",
   "g", "k", "h",
-  "j", "q", "x",
-  "zh", "ch", "sh", "r",
-  "z", "c", "s",
-  "∅", // null-initial (syllables starting with y/w/vowel)
+] as const;
+
+/** Consonant + medial "i" — WOMAN category. */
+const I_INITIALS = [
+  "∅i", "bi", "pi", "mi", "di", "ti", "ni", "li",
+  "ji", "qi", "xi",
+] as const;
+
+/** Consonant + medial "u" — FICTIONAL category. */
+const U_INITIALS = [
+  "∅u", "bu", "pu", "mu", "fu", "du", "tu", "nu", "lu",
+  "zu", "cu", "su", "zhu", "chu", "shu", "ru",
+  "gu", "ku", "hu",
+] as const;
+
+/** Consonant + medial "ü" — GOD/LEADER category. */
+const Ü_INITIALS = [
+  "∅ü", "nü", "lü", "jü", "qü", "xü",
+] as const;
+
+export const INITIALS = [
+  ...BARE_INITIALS,
+  ...I_INITIALS,
+  ...U_INITIALS,
+  ...Ü_INITIALS,
 ] as const;
 export type Initial = (typeof INITIALS)[number];
 
-/**
- * The four Mandarin Blueprint "actor categories" used to organise the
- * 21 initials. Users pick people from their own life for each slot;
- * keeping the same category per slot helps memory consistency.
- *
- * Note: these are conventions, not enforcement. The tool lets the user
- * pick any person for any slot — we just suggest the conventional
- * category.
- */
+/** Sanity-check: total must be exactly 55 per the MB chart. */
+if (INITIALS.length !== 55) {
+  throw new Error(`pinyin.ts: expected 55 initials, got ${INITIALS.length}`);
+}
+
+// ----------------------------------------------------------------
+// Actor categories
+// ----------------------------------------------------------------
+
 export type ActorCategory = "man" | "woman" | "fictional" | "god-or-leader";
 
-/**
- * 13 HMM finals. This collapses the standard 37 finals by treating
- * the orthographic y/w variants as the same final, and by grouping
- * close diphthongs that the learner can keep in the same set.
- *
- * The exact 13 used by Mandarin Blueprint are proprietary, so this is
- * our own consolidation following the same principles. We'll iterate
- * once a learner tests it.
- */
-/**
- * 13 HMM-consolidated finals. Audit findings (2026-05):
- * - "ou" / "iu" / "iou" must NOT be folded into "o" — they're a
- *   distinct ending. Top-3000 has 200+ chars on this group.
- * - "er" is rare (~6 chars in top-3000) and Mandarin Blueprint folds
- *   it into the residual bucket; we drop it from the canonical 13.
- *   The parser still returns it for "er" raw, falling under "o" set
- *   for the user's HMM library by convention (or they can override).
- */
+const BARE_SET = new Set<string>(BARE_INITIALS);
+const I_SET = new Set<string>(I_INITIALS);
+const U_SET = new Set<string>(U_INITIALS);
+const Ü_SET = new Set<string>(Ü_INITIALS);
+
+/** Suggested category for each initial. Users can override per slot. */
+export const SUGGESTED_CATEGORY: Record<Initial, ActorCategory> = (() => {
+  const out = {} as Record<Initial, ActorCategory>;
+  for (const init of INITIALS) {
+    if (BARE_SET.has(init)) out[init] = "man";
+    else if (I_SET.has(init)) out[init] = "woman";
+    else if (U_SET.has(init)) out[init] = "fictional";
+    else if (Ü_SET.has(init)) out[init] = "god-or-leader";
+  }
+  return out;
+})();
+
+// ----------------------------------------------------------------
+// 13 FINALS (including the null Ø — childhood home in HMM convention)
+// ----------------------------------------------------------------
+
 export const FINALS = [
-  "a",     // a, ia, ua
-  "ai",    // ai, uai
-  "an",    // an, ian, uan, üan
-  "ang",   // ang, iang, uang
-  "ao",    // ao, iao
-  "e",     // e, ie, ue, üe
-  "ei",    // ei, ui (= uei)
-  "en",    // en, in, un, ün
-  "eng",   // eng, ing, ueng, ong, iong
-  "i",     // i, -i (zhi/chi/shi/ri/zi/ci/si)
-  "o",     // o, uo, er (residual)
-  "ou",    // ou, iu (= iou)
-  "u",     // u, ü
+  "ø",   // null final — syllables like bi, du, ni, ji where the only
+         // vowel is consumed into the initial. Per MB convention this
+         // is the learner's CHILDHOOD HOME (set #13, automatic).
+  "a",
+  "ai",
+  "ao",
+  "an",
+  "ang",
+  "e",
+  "ei",
+  "en",  // also covers "in" / "ün" via floating-e
+  "eng", // also covers "ing" / "üng" via floating-e
+  "o",
+  "ong",
+  "ou",
 ] as const;
 export type Final = (typeof FINALS)[number];
 
-/**
- * Tones are mapped to rooms in the user's chosen set per HMM convention.
- */
+if (FINALS.length !== 13) {
+  throw new Error(`pinyin.ts: expected 13 finals, got ${FINALS.length}`);
+}
+
+// ----------------------------------------------------------------
+// Tone → room
+// ----------------------------------------------------------------
+
 export const TONE_TO_ROOM: Record<1 | 2 | 3 | 4 | 5, string> = {
   1: "entrance",
   2: "kitchen",
@@ -85,82 +127,59 @@ export const TONE_TO_ROOM: Record<1 | 2 | 3 | 4 | 5, string> = {
   5: "roof", // neutral tone
 };
 
-/**
- * Parse a pinyin string like "lín", "ma1", "zhang3", or "ma" into
- * (initial, final, tone) for HMM mapping.
- *
- * Accepts either tone-mark form ("lín") or numeric form ("lin2").
- * Returns the consolidated HMM final (so "lin" → final "en", not "in").
- */
+// ----------------------------------------------------------------
+// Parser
+// ----------------------------------------------------------------
+
 export interface PinyinParts {
   initial: Initial;
   final: Final;
   tone: 1 | 2 | 3 | 4 | 5;
-  /** The raw final string before HMM consolidation, e.g. "in" for "lin". */
+  /** Raw final string before consolidation, e.g. "n" for "bin". */
   rawFinal: string;
 }
 
-/** Tone-marked vowels → base vowel + tone number. */
 const TONE_VOWELS: Record<string, [string, 1 | 2 | 3 | 4 | 5]> = {
-  // a
   "ā": ["a", 1], "á": ["a", 2], "ǎ": ["a", 3], "à": ["a", 4],
-  // e
   "ē": ["e", 1], "é": ["e", 2], "ě": ["e", 3], "è": ["e", 4],
-  // i
   "ī": ["i", 1], "í": ["i", 2], "ǐ": ["i", 3], "ì": ["i", 4],
-  // o
   "ō": ["o", 1], "ó": ["o", 2], "ǒ": ["o", 3], "ò": ["o", 4],
-  // u
   "ū": ["u", 1], "ú": ["u", 2], "ǔ": ["u", 3], "ù": ["u", 4],
-  // ü
   "ǖ": ["ü", 1], "ǘ": ["ü", 2], "ǚ": ["ü", 3], "ǜ": ["ü", 4],
 };
 
-/** Strip tone marks, return [bare-string, tone]. */
 function stripToneMarks(s: string): [string, 1 | 2 | 3 | 4 | 5] {
   let tone: 1 | 2 | 3 | 4 | 5 = 5;
   const bare = [...s].map((ch) => {
     const t = TONE_VOWELS[ch];
-    if (t) {
-      tone = t[1];
-      return t[0];
-    }
+    if (t) { tone = t[1]; return t[0]; }
     return ch;
   }).join("");
   return [bare, tone];
 }
 
-/** Map a raw final (after initial is stripped) to the HMM consolidated final. */
-function consolidateFinal(raw: string): Final {
-  // Order matters — longer matches first. "iou" -> "ou" before any
-  // pattern that could match "i".
-  if (/^(iou|iu|ou)$/.test(raw)) return "ou";
-  if (/^(iang|uang|ang)$/.test(raw)) return "ang";
-  if (/^(eng|ing|ueng|ong|iong)$/.test(raw)) return "eng";
-  if (/^(ian|uan|üan|van|an)$/.test(raw)) return "an";
-  if (/^(in|un|ün|vn|en)$/.test(raw)) return "en";
-  if (/^(iao|ao)$/.test(raw)) return "ao";
-  if (/^(uai|ai)$/.test(raw)) return "ai";
-  if (/^(ui|uei|ei)$/.test(raw)) return "ei";
-  if (/^(ia|ua|a)$/.test(raw)) return "a";
-  if (/^(ie|üe|ue|ve|e)$/.test(raw)) return "e";
-  // "er" is rare (~6 chars in top-3000); fold into "o" set per HMM
-  // residual convention. Learner can choose how to handle 儿/二/而
-  // in that set.
-  if (raw === "er") return "o";
-  if (/^(uo|o)$/.test(raw)) return "o";
-  if (raw === "ü" || raw === "v" || raw === "u") return "u";
-  if (raw === "i") return "i";
-  // Fallback: best-effort. Should never hit for valid pinyin.
-  return "a";
-}
-
 const INITIAL_MATCH = /^(zh|ch|sh|b|p|m|f|d|t|n|l|g|k|h|j|q|x|r|z|c|s|y|w)/;
 
+/**
+ * Consonants that participate in i-extension (i.e. "bi-" / "di-" exist
+ * as their own female-category initial, distinct from "b-" / "d-").
+ * Consonants NOT in this set treat a following "i" as either an apical
+ * placeholder vowel (zi/ci/si/zhi/chi/shi/ri → bare + Ø final) or as
+ * the start of a real final (no such cases exist for g/k/h/f).
+ */
+const I_EXT_CONSONANTS = new Set(["∅", "b", "p", "m", "d", "t", "n", "l", "j", "q", "x"]);
+
+/** Consonants where written "u" is actually "ü" (umlaut convention). */
+const U_AS_Ü_CONSONANTS = new Set(["j", "q", "x"]);
+
+/**
+ * Parse "ma1" / "lín" / "biang" into (initial, final, tone). Returns
+ * null on garbage input. Normalises tone marks + numeric forms +
+ * applies the HMM phonetic rewrites (iu→i+ou, ui→u+ei, floating-e).
+ */
 export function parsePinyin(input: string): PinyinParts | null {
   if (!input) return null;
-  // Numeric tone form ("ma1", "lin2")?
-  let s = input.trim().toLowerCase().replace(/ü/g, "ü");
+  let s = input.trim().toLowerCase();
   let tone: 1 | 2 | 3 | 4 | 5;
   const numericMatch = /^([a-zü]+)([1-5])$/.exec(s);
   if (numericMatch) {
@@ -169,43 +188,111 @@ export function parsePinyin(input: string): PinyinParts | null {
   } else {
     [s, tone] = stripToneMarks(s);
   }
+  // Common "v" → "ü" convention (since ü is hard to type).
+  s = s.replace(/v/g, "ü");
   if (!s) return null;
 
-  // Split initial / rest. The regex may match "y" or "w" which are
-  // orthographic-only — we fold them into ∅ + a final adjustment.
+  // Extract consonant prefix (longest match first via the regex's order).
+  let consonant = "";
+  let rest = s;
   const m = INITIAL_MATCH.exec(s);
-  let initial: Initial;
-  let rest: string;
   if (m) {
-    const raw = m[0];
-    rest = s.slice(raw.length);
-    if (raw === "y") {
-      initial = "∅";
-      // yi → i, ya → ia, ye → ie, yao → iao, you → iou.
-      // yu → ü, yuan → üan, yue → üe, yun → ün.
-      if (rest.startsWith("u")) rest = "ü" + rest.slice(1);
-      else if (rest === "" || rest === "i") rest = "i";
-      else if (!rest.startsWith("i")) rest = "i" + rest;
-    } else if (raw === "w") {
-      initial = "∅";
-      // wu → u, wa → ua, wo → uo, wei → uei.
-      if (rest === "" || rest === "u") rest = "u";
-      else if (!rest.startsWith("u")) rest = "u" + rest;
-    } else {
-      initial = raw as Initial;
-    }
-  } else {
-    // Starts with a vowel directly.
-    initial = "∅";
-    rest = s;
+    consonant = m[0];
+    rest = s.slice(consonant.length);
   }
+
+  // y- and w- are orthographic conventions for ∅ initial + i/u/ü medial.
+  if (consonant === "y") {
+    consonant = "∅";
+    if (rest.startsWith("u")) {
+      // yu, yue, yuan, yun all have "ü" not "u".
+      rest = "ü" + rest.slice(1);
+    } else if (rest === "" || rest === "i") {
+      rest = "i";
+    } else if (!rest.startsWith("i")) {
+      rest = "i" + rest;
+    }
+  } else if (consonant === "w") {
+    consonant = "∅";
+    if (rest === "" || rest === "u") {
+      rest = "u";
+    } else if (!rest.startsWith("u")) {
+      rest = "u" + rest;
+    }
+  } else if (consonant === "") {
+    consonant = "∅";
+  }
+
+  // Extract the medial vowel (i/u/ü) into the initial cluster.
+  let initialSuffix = "";
+  if (rest.startsWith("ü")) {
+    initialSuffix = "ü";
+    rest = rest.slice(1);
+  } else if (rest.startsWith("u")) {
+    initialSuffix = U_AS_Ü_CONSONANTS.has(consonant) ? "ü" : "u";
+    rest = rest.slice(1);
+  } else if (rest.startsWith("i")) {
+    if (I_EXT_CONSONANTS.has(consonant)) {
+      initialSuffix = "i";
+      rest = rest.slice(1);
+    } else {
+      // Apical-i placeholder (zi/ci/si/zhi/chi/shi/ri): consume the "i"
+      // as a null vowel, NOT as a medial. The initial stays bare.
+      if (rest === "i") rest = "";
+    }
+  }
+
+  // MB phonetic rewrites:
+  // - "iu" really = "iou" → after extracting the i-medial, the leftover
+  //   "u" becomes "ou". (e.g. liu = li-ou, jiu = ji-ou)
+  if (initialSuffix === "i" && rest === "u") rest = "ou";
+  // - "ui" really = "uei" → after u-medial, "i" → "ei". (e.g. dui = du-ei)
+  if (initialSuffix === "u" && rest === "i") rest = "ei";
+
+  // Floating-e: bare "n" / "ng" coda gets an "e" in front so it lands
+  // on the en/eng final slot. (bi+n = bin, but final is en; bi+ng = bing,
+  // final is eng.)
+  if (rest === "n") rest = "en";
+  else if (rest === "ng") rest = "eng";
+
+  // ü's umlaut never survives after j/q/x in writing (jue, juan, jun)
+  // — but at this point we've already consumed it into initialSuffix,
+  // so nothing more to do.
 
   const rawFinal = rest;
   const final = consolidateFinal(rest);
-  return { initial, final, tone, rawFinal };
+  const initial = (consonant + initialSuffix) as Initial;
+  // Sanity guard: if we computed an initial that isn't in the 55, fail
+  // loudly. Better to NULL out one entry than silently mis-tag a slot.
+  if (!BARE_SET.has(initial) && !I_SET.has(initial) && !U_SET.has(initial) && !Ü_SET.has(initial)) {
+    return null;
+  }
+  return { final, initial, rawFinal, tone };
 }
 
-/** Tone → room name within the user's set. */
+/** Map the leftover final string to one of the canonical 13. */
+function consolidateFinal(raw: string): Final {
+  if (raw === "" ) return "ø";
+  if (raw === "a") return "a";
+  if (raw === "ai") return "ai";
+  if (raw === "ao") return "ao";
+  if (raw === "an") return "an";
+  if (raw === "ang") return "ang";
+  if (raw === "e") return "e";
+  if (raw === "ei") return "ei";
+  if (raw === "en") return "en";
+  if (raw === "eng") return "eng";
+  if (raw === "o") return "o";
+  if (raw === "ong") return "ong";
+  if (raw === "ou") return "ou";
+  // "er" (儿/二/而) — rare. MB has no separate slot; fold to "e".
+  if (raw === "er") return "e";
+  // Best-effort fallbacks for any straggler shapes:
+  if (raw === "n") return "en";
+  if (raw === "ng") return "eng";
+  return "ø";
+}
+
 export function roomForTone(tone: 1 | 2 | 3 | 4 | 5): string {
   return TONE_TO_ROOM[tone];
 }
