@@ -171,12 +171,19 @@ function SetDialog({ final, current, onSave, onClose }: SetDialogProps) {
     setGenBusy(true);
     setGenError(null);
     try {
-      const dataUrl = await generatePortrait({
+      // 3 angles: canonical + 2 variants. exteriorDataUrl holds one,
+      // the other two are tucked into rooms[1] + rooms[2] as fallback
+      // anchors so the multi-ref pipeline can use them when generating
+      // tone-1 / tone-2 cards.
+      const dataUrls = await generatePortrait({
+        count: 3,
         description: description.trim(),
         kind: "set",
         name: name.trim(),
       });
-      setExteriorDataUrl(dataUrl);
+      setExteriorDataUrl(dataUrls[0]);
+      if (dataUrls[1] && !rooms[1]) setRooms((prev) => ({ ...prev, 1: dataUrls[1] }));
+      if (dataUrls[2] && !rooms[2]) setRooms((prev) => ({ ...prev, 2: dataUrls[2] }));
     } catch (err) {
       setGenError((err as Error).message);
     } finally {
@@ -270,7 +277,7 @@ function SetDialog({ final, current, onSave, onClose }: SetDialogProps) {
               data-testid="set-generate-exterior"
               title="Generate a canonical exterior shot from the description so the place looks the same across every card"
             >
-              {genBusy ? "Generating exterior…" : "Generate canonical exterior from description"}
+              {genBusy ? "Generating 3 exterior shots…" : "Generate 3 canonical exterior shots from description"}
             </button>
             {genError && <span className="portrait-gen-error">{genError}</span>}
           </div>

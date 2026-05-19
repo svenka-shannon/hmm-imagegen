@@ -203,12 +203,13 @@ function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
     setGenBusy(true);
     setGenError(null);
     try {
-      const dataUrl = await generatePortrait({
+      const dataUrls = await generatePortrait({
+        count: 3,
         description: description.trim(),
         kind: "actor",
         name: name.trim(),
       });
-      setImageDataUrls((prev) => [...prev, dataUrl]);
+      setImageDataUrls((prev) => [...prev, ...dataUrls]);
     } catch (err) {
       setGenError((err as Error).message);
     } finally {
@@ -295,7 +296,7 @@ function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
               data-testid="actor-generate-portrait"
               title="Generate a canonical portrait from the description so the character looks the same across every card"
             >
-              {genBusy ? "Generating portrait…" : "Generate canonical portrait from description"}
+              {genBusy ? "Generating 3 portraits…" : "Generate 3 canonical portraits from description"}
             </button>
             {genError && <span className="portrait-gen-error">{genError}</span>}
           </div>
