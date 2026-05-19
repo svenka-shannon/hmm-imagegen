@@ -95,8 +95,8 @@ export function ActorsWizard({ onComplete }: Props) {
                     onClick={() => setOpenInitial(initial)}
                     data-testid={`initial-card-${initial}`}
                   >
-                    {a?.imageDataUrl && (
-                      <img src={a.imageDataUrl} alt="" className="initial-card-thumb" />
+                    {(a?.imageDataUrls?.[0] ?? a?.imageDataUrl) && (
+                      <img src={a?.imageDataUrls?.[0] ?? a?.imageDataUrl} alt="" className="initial-card-thumb" />
                     )}
                     <div className="initial-glyph">{initial}</div>
                     <div className="initial-actor-name">
@@ -114,8 +114,8 @@ export function ActorsWizard({ onComplete }: Props) {
         <ActorDialog
           initial={openInitial}
           current={actors[openInitial]}
-          onSave={(name, category, imageDataUrl, description) => {
-            setActor(openInitial, { category, description, imageDataUrl, name });
+          onSave={(name, category, imageDataUrls, description) => {
+            setActor(openInitial, { category, description, imageDataUrls, name });
             setOpenInitial(null);
           }}
           onClose={() => setOpenInitial(null)}
@@ -142,8 +142,13 @@ export function ActorsWizard({ onComplete }: Props) {
 
 interface ActorDialogProps {
   readonly initial: Initial;
-  readonly current?: { name?: string; category?: ActorCategory; imageDataUrl?: string; description?: string };
-  readonly onSave: (name: string, category: ActorCategory, imageDataUrl?: string, description?: string) => void;
+  readonly current?: { name?: string; category?: ActorCategory; imageDataUrl?: string; imageDataUrls?: string[]; description?: string };
+  readonly onSave: (
+    name: string,
+    category: ActorCategory,
+    imageDataUrls: string[] | undefined,
+    description?: string,
+  ) => void;
   readonly onClose: () => void;
 }
 
@@ -153,19 +158,35 @@ function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
   const [category, setCategory] = useState<ActorCategory>(
     current?.category ?? SUGGESTED_CATEGORY[initial],
   );
-  const [imageDataUrl, setImageDataUrl] = useState<string | undefined>(
-    current?.imageDataUrl,
-  );
+  // Multi-ref images: an array of data URLs. Older state with a single
+  // imageDataUrl is promoted to a one-element array on dialog open so
+  // saving cleanly migrates the legacy field.
+  const [imageDataUrls, setImageDataUrls] = useState<string[]>(() => {
+    if (current?.imageDataUrls && current.imageDataUrls.length > 0) return current.imageDataUrls;
+    return current?.imageDataUrl ? [current.imageDataUrl] : [];
+  });
   const [description, setDescription] = useState<string>(current?.description ?? "");
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      setImageDataUrl(reader.result as string);
-    });
-    reader.readAsDataURL(file);
+  function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    Promise.all(
+      files.map(
+        (f) =>
+          new Promise<string>((res, rej) => {
+            const r = new FileReader();
+            r.addEventListener("load", () => res(r.result as string));
+            r.addEventListener("error", () => rej(r.error));
+            r.readAsDataURL(f);
+          }),
+      ),
+    )
+      .then((urls) => setImageDataUrls((prev) => [...prev, ...urls]))
+      .catch(() => { /* ignore — the user can re-upload */ });
+    e.target.value = ""; // allow re-selecting the same file
+  }
+  function removeImage(idx: number) {
+    setImageDataUrls((prev) => prev.filter((_, i) => i !== idx));
   }
 
   return (
@@ -204,16 +225,29 @@ function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
           </select>
         </label>
         <label>
-          Reference image (optional, recommended)
+          Reference photos (2-4 different angles work best)
           <input
             type="file"
             accept="image/*"
-            onChange={handleFile}
+            multiple
+            onChange={handleFiles}
             data-testid="actor-image-input"
           />
         </label>
-        {imageDataUrl && (
-          <img src={imageDataUrl} alt="" className="actor-preview" />
+        {imageDataUrls.length > 0 && (
+          <div className="actor-preview-row" data-testid="actor-preview-row">
+            {imageDataUrls.map((url, idx) => (
+              <div key={idx} className="actor-preview-tile">
+                <img src={url} alt="" className="actor-preview-thumb" />
+                <button
+                  type="button"
+                  onClick={() => removeImage(idx)}
+                  className="actor-preview-remove"
+                  aria-label={`Remove photo ${idx + 1}`}
+                >×</button>
+              </div>
+            ))}
+          </div>
         )}
         <label>
           Description (fallback if you don't have a photo)
@@ -230,7 +264,7 @@ function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
           <button
             className="primary"
             disabled={!name.trim()}
-            onClick={() => onSave(name.trim(), category, imageDataUrl, description.trim() || undefined)}
+            onClick={() => onSave(name.trim(), category, imageDataUrls.length > 0 ? imageDataUrls : undefined, description.trim() || undefined)}
             data-testid="actor-save-button"
           >
             Save

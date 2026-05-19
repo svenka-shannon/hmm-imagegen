@@ -97,9 +97,21 @@ export async function syncPrepDeck({ actors, sets, forceUpdate = false }: SyncOp
     if (!a?.name) continue;
     const key = `initial:${initial}`;
     if (existing.has(key) && !forceUpdate) { out.skipped++; continue; }
-    const imageTag = a.imageDataUrl
-      ? `<img src="${await uploadIfNeeded(`hmm-prep-actor-${initial}.jpg`, a.imageDataUrl)}" style="max-width: 320px">`
-      : "";
+    // Multi-ref: show all photos on the prep card. Falls back to the
+    // legacy singular `imageDataUrl` for older state that hasn't been
+    // re-saved through the multi-ref dialog yet.
+    const urls = (a.imageDataUrls && a.imageDataUrls.length > 0)
+      ? a.imageDataUrls
+      : (a.imageDataUrl ? [a.imageDataUrl] : []);
+    const imageTags = await Promise.all(
+      urls.map(async (url, idx) => {
+        const filename = urls.length === 1
+          ? `hmm-prep-actor-${initial}.jpg`
+          : `hmm-prep-actor-${initial}-${idx + 1}.jpg`;
+        return `<img src="${await uploadIfNeeded(filename, url)}" style="max-width: 320px">`;
+      }),
+    );
+    const imageTag = imageTags.join("");
     notes.push({
       deckName: PREP_DECK_NAME,
       fields: {

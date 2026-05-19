@@ -19,6 +19,20 @@ import type { Final, Initial, ActorCategory } from "../../../src/pinyin";
 export interface ActorAssignment {
   name: string;
   category: ActorCategory;
+  /**
+   * Multi-reference image list. Each entry is a `data:` URL. Gemini
+   * does best with 2-4 distinct angles / outfits of the same person —
+   * it locks onto the shared facial features instead of any one frozen
+   * pose, so scene cards look more like "Mike in different moments"
+   * and less like "the same photo with Mike pasted in."
+   *
+   * Kept as `imageDataUrls` (plural). The legacy `imageDataUrl`
+   * singular is still read by the dialog for backward compat with
+   * older browser-localStorage state, then folded into the array on
+   * first save.
+   */
+  imageDataUrls?: string[];
+  /** @deprecated use `imageDataUrls`. Older state may have this set. */
   imageDataUrl?: string;
   /**
    * Optional free-text description used when no reference photo is
@@ -29,6 +43,13 @@ export interface ActorAssignment {
    * better than excluding the slot entirely).
    */
   description?: string;
+}
+
+/** Helper to read all actor refs as a single list (handles legacy field). */
+export function actorImageUrls(a: ActorAssignment | undefined): string[] {
+  if (!a) return [];
+  if (a.imageDataUrls && a.imageDataUrls.length > 0) return a.imageDataUrls;
+  return a.imageDataUrl ? [a.imageDataUrl] : [];
 }
 
 export interface SetAssignment {

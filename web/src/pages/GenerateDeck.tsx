@@ -115,9 +115,10 @@ export function GenerateDeck() {
     return Boolean(set.description?.trim());
   }
   function actorHasRef(
-    actor: { imageDataUrl?: string; description?: string } | undefined,
+    actor: { imageDataUrl?: string; imageDataUrls?: string[]; description?: string } | undefined,
   ): boolean {
     if (!actor) return false;
+    if (actor.imageDataUrls && actor.imageDataUrls.length > 0) return true;
     if (actor.imageDataUrl) return true;
     return Boolean(actor.description?.trim());
   }
@@ -174,7 +175,7 @@ export function GenerateDeck() {
     for (const a of Object.values(actors)) {
       if (!a) continue;
       actorsTotal++;
-      if (a.imageDataUrl) actorsWithRef++;
+      if ((a.imageDataUrls && a.imageDataUrls.length > 0) || a.imageDataUrl) actorsWithRef++;
     }
     for (const s of Object.values(sets)) {
       if (!s) continue;

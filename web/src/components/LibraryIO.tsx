@@ -22,7 +22,9 @@ import type { Final, Initial } from "../../../src/pinyin";
 interface ManifestActor {
   category?: ActorAssignment["category"];
   name?: string;
-  /** Path inside the zip, e.g. "images/actor-b.png". Empty if no image. */
+  /** Paths inside the zip — multi-ref. Order is preserved. */
+  imageFiles?: string[];
+  /** @deprecated singular legacy field. Older bundles may have this. */
   imageFile?: string;
   /** Text-only fallback when no photo exists. */
   description?: string;
@@ -86,14 +88,20 @@ export function LibraryIO() {
           ...(a.description ? { description: a.description } : {}),
           name: a.name,
         };
-        if (a.imageDataUrl) {
-          const blob = dataUrlToBlob(a.imageDataUrl);
-          if (blob) {
-            const path = `images/actor-${initial}.${blob.ext}`;
-            images.file(path.replace(/^images\//, ""), blob.bytes);
-            m.imageFile = path;
-          }
-        }
+        // Coalesce legacy singular into the array shape for export.
+        const allUrls = (a.imageDataUrls && a.imageDataUrls.length > 0)
+          ? a.imageDataUrls
+          : (a.imageDataUrl ? [a.imageDataUrl] : []);
+        const paths: string[] = [];
+        allUrls.forEach((url, idx) => {
+          const blob = dataUrlToBlob(url);
+          if (!blob) return;
+          const suffix = allUrls.length === 1 ? "" : `-${idx + 1}`;
+          const path = `images/actor-${initial}${suffix}.${blob.ext}`;
+          images.file(path.replace(/^images\//, ""), blob.bytes);
+          paths.push(path);
+        });
+        if (paths.length > 0) m.imageFiles = paths;
         manifest.actors[initial as Initial] = m;
       }
       for (const [final, s] of Object.entries(sets)) {
@@ -161,11 +169,20 @@ export function LibraryIO() {
         }
         for (const [initial, m] of Object.entries(manifest.actors)) {
           if (!m?.name) continue;
-          const imageDataUrl = await readImage(m.imageFile);
+          // Accept either the new imageFiles array or the legacy imageFile
+          // singular so older bundles still import cleanly.
+          const paths = m.imageFiles && m.imageFiles.length > 0
+            ? m.imageFiles
+            : (m.imageFile ? [m.imageFile] : []);
+          const imageDataUrls: string[] = [];
+          for (const p of paths) {
+            const url = await readImage(p);
+            if (url) imageDataUrls.push(url);
+          }
           setActor(initial as Initial, {
             category: m.category ?? "man",
             description: m.description,
-            imageDataUrl,
+            imageDataUrls: imageDataUrls.length > 0 ? imageDataUrls : undefined,
             name: m.name,
           });
           actorCount++;

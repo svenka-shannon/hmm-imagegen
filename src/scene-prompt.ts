@@ -13,10 +13,20 @@ import { TONE_TO_ROOM } from "./pinyin";
 
 export interface ActorRef {
   name: string;
+  /** Multi-ref photos. Order is preserved; first entry is the "hero" shot
+   *  cited in the prompt, additional photos lock in cross-angle features. */
+  imageDataUrls?: string[];
+  /** @deprecated singular legacy field. Read via {@link actorRefImages}. */
   imageDataUrl?: string;
   /** Text-only fallback when no photo is available. Fed into the prompt
    *  to give image-gen a consistent subject reference. */
   description?: string;
+}
+
+/** All photos for an actor as a single array (handles legacy singular field). */
+function actorRefImages(a: ActorRef): string[] {
+  if (a.imageDataUrls && a.imageDataUrls.length > 0) return a.imageDataUrls;
+  return a.imageDataUrl ? [a.imageDataUrl] : [];
 }
 
 export interface SetRef {
@@ -114,8 +124,14 @@ export function buildScene(opts: SceneBuildOpts): SceneOutput {
   // emitted into SceneOutput.refs below.
   const refCitations: string[] = [];
   let nextRefIdx = 1;
-  if (actor.imageDataUrl) {
-    refCitations.push(`${actor.name} must match reference image ${nextRefIdx++} (same face, same body type, recognisably the same person)`);
+  const actorPhotos = actorRefImages(actor);
+  if (actorPhotos.length > 0) {
+    const first = nextRefIdx;
+    nextRefIdx += actorPhotos.length;
+    const range = actorPhotos.length === 1
+      ? `reference image ${first}`
+      : `reference images ${first}-${first + actorPhotos.length - 1} (multiple angles of the same person — match shared facial features, not any one outfit)`;
+    refCitations.push(`${actor.name} must match ${range} (same face, same body type, recognisably the same person)`);
   } else if (actor.description?.trim()) {
     // No photo available — fall back to the user's written description.
     // Less consistent across cards than a photo, but lets the slot ship.
@@ -149,7 +165,9 @@ export function buildScene(opts: SceneBuildOpts): SceneOutput {
   ].filter(Boolean).join(" ");
 
   const refs: SceneOutput["refs"] = [];
-  if (actor.imageDataUrl) refs.push({ dataUrl: actor.imageDataUrl, kind: "actor", tag: `actor:${pinyin.initial}` });
+  for (const url of actorPhotos) {
+    refs.push({ dataUrl: url, kind: "actor", tag: `actor:${pinyin.initial}` });
+  }
   const roomUrl = set.rooms?.[pinyin.tone];
   if (roomUrl) refs.push({ dataUrl: roomUrl, kind: "room", tag: `room:${pinyin.tone}` });
   else if (set.exteriorDataUrl) refs.push({ dataUrl: set.exteriorDataUrl, kind: "exterior", tag: "exterior" });
