@@ -152,6 +152,26 @@ a { color: var(--accent); }
 .welcome-prereqs strong { display: block; margin-bottom: 8px; color: var(--accent); }
 .welcome-prereqs ul { margin: 0; padding-left: 20px; color: var(--fg-muted); }
 
+.welcome-lan {
+  padding: 16px 20px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.welcome-lan strong { display: block; margin-bottom: 8px; color: var(--accent); }
+.welcome-lan p { margin: 0 0 10px; color: var(--fg-muted); }
+.welcome-lan ul { margin: 0; padding-left: 20px; list-style: none; }
+.welcome-lan li { margin: 4px 0; }
+.welcome-lan code {
+  background: rgba(0,0,0,0.3);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  user-select: all;
+}
+
 .welcome-preflight {
   margin-top: 16px;
   padding: 10px 14px;

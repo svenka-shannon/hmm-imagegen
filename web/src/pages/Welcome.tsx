@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useAnkiHealth } from "../components/AnkiHealthBanner";
 
 interface Props {
@@ -6,6 +7,19 @@ interface Props {
 
 export function Welcome({ onStart }: Props) {
   const ankiHealth = useAnkiHealth();
+  // LAN IPs of the host running this server — surfaced so the user can
+  // open the wizard on a phone (over the same Wi-Fi), upload reference
+  // photos from camera roll, and have those auto-sync to the PC's
+  // library.json. Skipped when running off a non-LAN-bound build.
+  const [lanIps, setLanIps] = useState<string[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/lan")
+      .then((r) => r.json() as Promise<{ ips: string[] }>)
+      .then((j) => { if (!cancelled) setLanIps(j.ips); })
+      .catch(() => { /* server may be offline — quietly skip */ });
+    return () => { cancelled = true; };
+  }, []);
   return (
     <div className="welcome">
       <div className="welcome-hero">
@@ -65,6 +79,25 @@ export function Welcome({ onStart }: Props) {
           </div>
         </div>
       </div>
+
+      {lanIps && lanIps.length > 0 && (
+        <div className="welcome-lan" data-testid="welcome-lan">
+          <strong>📱 Onboarding from your phone?</strong>
+          <p>
+            Open one of these URLs in your phone's browser (same Wi-Fi).
+            Camera-roll uploads sync back to this machine automatically — handy
+            if your reference photos live on your phone but Anki runs on this
+            PC.
+          </p>
+          <ul>
+            {lanIps.map((ip) => (
+              <li key={ip}>
+                <code>http://{ip}:{window.location.port || "5173"}</code>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="welcome-prereqs">
         <strong>Prerequisites</strong>

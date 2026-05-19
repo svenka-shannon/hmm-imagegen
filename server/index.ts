@@ -14,6 +14,7 @@
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { networkInterfaces } from "node:os";
 import { join } from "node:path";
 import { generate, OUT_ROOT, type ImagegenRequest } from "./imagegen";
 
@@ -59,6 +60,19 @@ const server = Bun.serve({
 
     if (url.pathname === "/health") {
       return Response.json({ status: "ok", uptime: process.uptime() }, { headers: CORS });
+    }
+
+    // GET /api/lan — return the host's LAN IPv4 addresses so the
+    // Welcome screen can show the user "open http://<ip>:5173 on your
+    // phone to keep onboarding there + sync back to this PC".
+    if (url.pathname === "/api/lan") {
+      const ips: string[] = [];
+      for (const ifs of Object.values(networkInterfaces())) {
+        for (const i of ifs ?? []) {
+          if (i.family === "IPv4" && !i.internal) ips.push(i.address);
+        }
+      }
+      return Response.json({ ips }, { headers: CORS });
     }
 
     // Library persistence (server-side mirror of the SPA's actor + set

@@ -23,6 +23,19 @@ Anki. See "Quickstart" below.
 Runs on macOS, Linux, and **Windows**. All you need is [Bun](https://bun.sh)
 (no python / no native build tools).
 
+### One-shot installer (recommended)
+
+After cloning the repo:
+
+- **Windows**: double-click `install.bat` (or run it from PowerShell)
+- **macOS / Linux**: `./install.sh`
+
+Both scripts install Bun if missing, run `bun install`, prompt for your
+Gemini API key, write it to `.env`, and offer to launch the dev server +
+open the browser.
+
+### Manual setup
+
 ```sh
 # 1. Install deps
 bun install
@@ -55,6 +68,21 @@ bun run dev
 #       toggle image-gen, click "Preview one card" to sanity-check, then
 #       "Build & push to Anki".
 ```
+
+### Onboarding from your phone, Anki on your PC
+
+Reference photos for actors + sets usually live on your phone, not on the
+machine where Anki is installed. The wizard supports this natively:
+
+1. Run `bun run dev` on the PC where Anki is installed.
+2. The Welcome screen will display LAN URLs like `http://192.168.1.42:5173`.
+3. Open one of those URLs in your phone's browser (same Wi-Fi).
+4. Upload photos from your phone — they're written through the server's
+   `library.json` mirror, which the PC instance reads on next refresh.
+5. Click "Sync with Anki" on the PC to push the deck.
+
+The library mirror uses last-write-wins by timestamp, so as long as
+you're editing one device at a time the two stay coherent.
 
 ### Windows notes
 
