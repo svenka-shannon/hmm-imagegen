@@ -148,6 +148,74 @@ export async function deckFieldValues(
 }
 
 /* ============================================================
+ * Card-level operations — used by the sync flow to inspect
+ * deck progress (how many cards are still "new" / unseen,
+ * how many are mature, when each note was added).
+ * ============================================================ */
+
+/** Returns card IDs matching an Anki search query (e.g. `deck:"X" is:new`). */
+export const findCards = (query: string, opts?: AnkiRequestOptions): Promise<number[]> =>
+  invoke<number[]>("findCards", { query }, opts);
+
+/**
+ * Per-card metadata returned by AnkiConnect's `cardsInfo`. We only model
+ * the fields the sync flow cares about; AnkiConnect returns many more.
+ */
+export interface CardInfo {
+  cardId: number;
+  /** Note (parent) id — multiple cards can share a note. */
+  note: number;
+  /** Card queue: 0=new, 1=learning, 2=review, 3=day-learning, -1=suspended, etc. */
+  queue: number;
+  /** Card type: 0=new, 1=learning, 2=review, 3=relearning. */
+  type: number;
+  /** Current review interval in days. Mature when >= 21. */
+  interval: number;
+  /** Field values keyed by field name. */
+  fields: Record<string, { value: string; order: number }>;
+}
+
+export const cardsInfo = (
+  cardIds: number[],
+  opts?: AnkiRequestOptions,
+): Promise<CardInfo[]> =>
+  invoke<CardInfo[]>("cardsInfo", { cards: cardIds }, opts);
+
+/**
+ * Summary of one deck's review state for the sync UI. "Mature" follows
+ * Anki's own definition (interval ≥ 21 days). "Buffer" is the count of
+ * cards the user hasn't seen yet — that's what the auto-top-up watches.
+ */
+export interface DeckProgress {
+  total: number;
+  newBuffer: number;
+  learning: number;
+  review: number;
+  mature: number;
+}
+
+/**
+ * Pull a single deck's progress in one round trip. Issues 5 parallel
+ * `findCards` queries against AnkiConnect, which is cheap; total deck
+ * size is the only count we don't already get for free.
+ */
+export async function deckProgress(
+  deckName: string,
+  opts?: AnkiRequestOptions,
+): Promise<DeckProgress> {
+  const escaped = deckName.replaceAll('"', '\\"');
+  const deckQuery = `deck:"${escaped}"`;
+  const [total, newBuffer, learning, review, mature] = await Promise.all([
+    findCards(deckQuery, opts).then((c) => c.length),
+    findCards(`${deckQuery} is:new`, opts).then((c) => c.length),
+    findCards(`${deckQuery} is:learn`, opts).then((c) => c.length),
+    findCards(`${deckQuery} is:review`, opts).then((c) => c.length),
+    findCards(`${deckQuery} prop:ivl>=21`, opts).then((c) => c.length),
+  ]);
+  return { learning, mature, newBuffer, review, total };
+}
+
+/* ============================================================
  * Media operations
  * ============================================================ */
 

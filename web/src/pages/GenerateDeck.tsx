@@ -4,8 +4,10 @@ import {
   addNotes,
   createDeck,
   deckFieldValues,
+  deckProgress,
   storeMediaFile,
   type AnkiNote,
+  type DeckProgress,
 } from "../../../src/anki-connect";
 import { fetchAsBase64, generateScene } from "../lib/imagegen-client";
 import { useAnkiHealth } from "../components/AnkiHealthBanner";
@@ -72,6 +74,18 @@ export function GenerateDeck() {
   const [stylePrefix, setStylePrefix] = useState(() => localStorage.getItem("hmm.stylePrefix") ?? "");
   const [forceUpdate, setForceUpdate] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Sync flow — top up the deck's new-card buffer when it runs low,
+  // so daily review never bottoms out. Defaults tuned for ~5/day study
+  // pace: if you have <10 unseen, add 20 more.
+  const [progress, setProgress] = useState<DeckProgress | null>(null);
+  const [progressError, setProgressError] = useState<string | null>(null);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncThreshold, setSyncThreshold] = useState(() =>
+    Number(localStorage.getItem("hmm.syncThreshold") ?? 10),
+  );
+  const [syncBatch, setSyncBatch] = useState(() =>
+    Number(localStorage.getItem("hmm.syncBatch") ?? 20),
+  );
   const [previewBusy, setPreviewBusy] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewScene, setPreviewScene] = useState<string | null>(null);
@@ -213,8 +227,65 @@ export function GenerateDeck() {
   }
 
   async function build() {
-    setBusy(true);
+    return runBuild(count, { clearLog: true });
+  }
+
+  /**
+   * Pull deck stats from AnkiConnect — count of new (unseen), learning,
+   * review, mature, and total cards in `deckName`. Surfaced in the
+   * Sync section so the user can see where they are without leaving
+   * the app.
+   */
+  async function refreshProgress() {
+    setProgressError(null);
+    try {
+      const p = await deckProgress(deckName);
+      setProgress(p);
+      return p;
+    } catch (err) {
+      setProgressError((err as Error).message);
+      return null;
+    }
+  }
+
+  /**
+   * "Sync with Anki" — pulls progress, and if the new-card buffer is
+   * below `syncThreshold`, tops up by `syncBatch` more entries from
+   * the active source. Idempotent (dedup-by-Hanzi inside runBuild).
+   */
+  async function sync() {
+    setSyncBusy(true);
     setLog([]);
+    try {
+      appendLog(`Syncing with Anki deck "${deckName}"…`);
+      const p = await refreshProgress();
+      if (!p) {
+        appendLog(`  could not read deck progress${progressError ? `: ${progressError}` : ""}`);
+        return;
+      }
+      appendLog(
+        `  ${p.total} total · ${p.newBuffer} new · ${p.learning} learning · ${p.review} review · ${p.mature} mature (ivl≥21d)`,
+      );
+      if (p.newBuffer >= syncThreshold) {
+        appendLog(
+          `  buffer healthy (${p.newBuffer} ≥ threshold ${syncThreshold}) — nothing to top up`,
+        );
+        return;
+      }
+      appendLog(`  buffer low (${p.newBuffer} < ${syncThreshold}) — adding ${syncBatch} more`);
+      await runBuild(syncBatch);
+      const after = await refreshProgress();
+      if (after) {
+        appendLog(`  done · deck now has ${after.total} total · ${after.newBuffer} new`);
+      }
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
+  async function runBuild(targetCount: number, opts: { clearLog?: boolean } = {}) {
+    setBusy(true);
+    if (opts.clearLog) setLog([]);
     try {
       appendLog(`Creating deck: ${deckName} (no-op if it already exists)`);
       await createDeck(deckName);
@@ -250,7 +321,7 @@ export function GenerateDeck() {
         if (!onlyReady && !generateImages) return true;
         return isCardReady(entry, generateImages);
       });
-      const picked = filtered.slice(0, count);
+      const picked = filtered.slice(0, targetCount);
       appendLog(
         `Source ${source}: ${all.length} total, ${existing.size} already in deck, ${filtered.length} new+eligible, taking first ${picked.length}`,
       );
@@ -566,6 +637,88 @@ export function GenerateDeck() {
           )}
         </div>
       )}
+
+      <section className="sync-section" data-testid="sync-section">
+        <h3>Sync with Anki</h3>
+        <p className="muted">
+          As you review the deck in Anki, the buffer of unseen "new" cards
+          shrinks. Click Sync to pull current progress; if the buffer drops
+          below the threshold, the next batch of characters is added
+          automatically — using the source + image-gen settings above.
+        </p>
+
+        {progress && (
+          <div className="sync-progress" data-testid="sync-progress">
+            <div className="sync-stat"><strong>{progress.total}</strong><span>total</span></div>
+            <div className="sync-stat"><strong>{progress.newBuffer}</strong><span>new (unseen)</span></div>
+            <div className="sync-stat"><strong>{progress.learning}</strong><span>learning</span></div>
+            <div className="sync-stat"><strong>{progress.review}</strong><span>review</span></div>
+            <div className="sync-stat"><strong>{progress.mature}</strong><span>mature (≥21d)</span></div>
+          </div>
+        )}
+        {progressError && (
+          <div className="error-banner" data-testid="sync-error">{progressError}</div>
+        )}
+
+        <div className="sync-controls">
+          <label>
+            Top up when new &lt;
+            <input
+              type="number"
+              min={0}
+              max={1000}
+              value={syncThreshold}
+              onChange={(e) => {
+                const v = Math.max(0, Number(e.target.value));
+                setSyncThreshold(v);
+                localStorage.setItem("hmm.syncThreshold", String(v));
+              }}
+              data-testid="sync-threshold-input"
+            />
+          </label>
+          <label>
+            Batch size
+            <input
+              type="number"
+              min={1}
+              max={500}
+              value={syncBatch}
+              onChange={(e) => {
+                const v = Math.max(1, Number(e.target.value));
+                setSyncBatch(v);
+                localStorage.setItem("hmm.syncBatch", String(v));
+              }}
+              data-testid="sync-batch-input"
+            />
+          </label>
+        </div>
+
+        <div className="sync-actions">
+          <button
+            onClick={() => void refreshProgress()}
+            disabled={syncBusy || busy || !ankiReady}
+            data-testid="refresh-progress-button"
+            title="Read deck stats from AnkiConnect without adding cards"
+          >
+            Refresh stats
+          </button>
+          <button
+            className="primary"
+            onClick={() => void sync()}
+            disabled={syncBusy || busy || previewBusy || !ankiReady || !deckName.trim() || (onlyReady && eligibleStats.ready === 0)}
+            data-testid="sync-button"
+            title={!ankiReady ? "AnkiConnect not reachable" : "Pull progress + top up the new-card buffer if it's low"}
+          >
+            {syncBusy ? (
+              <>
+                <span className="spinner" /> Syncing…
+              </>
+            ) : (
+              "Sync with Anki"
+            )}
+          </button>
+        </div>
+      </section>
 
       {log.length > 0 && (
         <pre className="generate-log" data-testid="generate-log">
