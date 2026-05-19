@@ -14,12 +14,17 @@ import { TONE_TO_ROOM } from "./pinyin";
 export interface ActorRef {
   name: string;
   imageDataUrl?: string;
+  /** Text-only fallback when no photo is available. Fed into the prompt
+   *  to give image-gen a consistent subject reference. */
+  description?: string;
 }
 
 export interface SetRef {
   name: string;
   exteriorDataUrl?: string;
   rooms?: Partial<Record<1 | 2 | 3 | 4 | 5, string>>;
+  /** Text-only fallback when no photo is available. */
+  description?: string;
 }
 
 export interface PropAssignment {
@@ -111,12 +116,18 @@ export function buildScene(opts: SceneBuildOpts): SceneOutput {
   let nextRefIdx = 1;
   if (actor.imageDataUrl) {
     refCitations.push(`${actor.name} must match reference image ${nextRefIdx++} (same face, same body type, recognisably the same person)`);
+  } else if (actor.description?.trim()) {
+    // No photo available — fall back to the user's written description.
+    // Less consistent across cards than a photo, but lets the slot ship.
+    refCitations.push(`${actor.name} is described as: ${actor.description.trim()}`);
   }
   const roomUrlPreview = set.rooms?.[pinyin.tone];
   if (roomUrlPreview) {
     refCitations.push(`the ${room} must match reference image ${nextRefIdx++} (same interior, same fixtures, same layout)`);
   } else if (set.exteriorDataUrl) {
     refCitations.push(`${set.name} (use the exterior in reference image ${nextRefIdx++} as a vibe anchor for the building)`);
+  } else if (set.description?.trim()) {
+    refCitations.push(`${set.name} is described as: ${set.description.trim()}`);
   }
   for (const p of props) {
     if (p.imageDataUrl) refCitations.push(`the ${p.prop} should look like reference image ${nextRefIdx++}`);

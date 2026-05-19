@@ -148,8 +148,8 @@ export function SetsWizard({ onComplete }: Props) {
 
 interface SetDialogProps {
   readonly final: Final;
-  readonly current?: { name?: string; rooms?: Partial<Record<1 | 2 | 3 | 4 | 5, string>>; exteriorDataUrl?: string };
-  readonly onSave: (value: { name: string; rooms?: Partial<Record<1 | 2 | 3 | 4 | 5, string>>; exteriorDataUrl?: string }) => void;
+  readonly current?: { name?: string; rooms?: Partial<Record<1 | 2 | 3 | 4 | 5, string>>; exteriorDataUrl?: string; description?: string };
+  readonly onSave: (value: { name: string; rooms?: Partial<Record<1 | 2 | 3 | 4 | 5, string>>; exteriorDataUrl?: string; description?: string }) => void;
   readonly onClose: () => void;
 }
 
@@ -162,6 +162,7 @@ function SetDialog({ final, current, onSave, onClose }: SetDialogProps) {
   const [rooms, setRooms] = useState<Partial<Record<1 | 2 | 3 | 4 | 5, string>>>(
     current?.rooms ?? {},
   );
+  const [description, setDescription] = useState<string>(current?.description ?? "");
 
   function readFile(file: File, cb: (dataUrl: string) => void) {
     const reader = new FileReader();
@@ -230,6 +231,17 @@ function SetDialog({ final, current, onSave, onClose }: SetDialogProps) {
           ))}
         </div>
 
+        <label>
+          Description (fallback if you don't have photos)
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="e.g. 1970s split-level on a wooded street, red brick + white shutters, big oak in the front yard"
+            rows={2}
+            data-testid="set-description-input"
+          />
+        </label>
+
         <div className="modal-actions">
           <button onClick={onClose}>Cancel</button>
           <button
@@ -237,6 +249,7 @@ function SetDialog({ final, current, onSave, onClose }: SetDialogProps) {
             disabled={!name.trim()}
             onClick={() =>
               onSave({
+                description: description.trim() || undefined,
                 exteriorDataUrl,
                 name: name.trim(),
                 rooms,

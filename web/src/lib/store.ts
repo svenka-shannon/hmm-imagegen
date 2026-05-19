@@ -20,12 +20,23 @@ export interface ActorAssignment {
   name: string;
   category: ActorCategory;
   imageDataUrl?: string;
+  /**
+   * Optional free-text description used when no reference photo is
+   * available — e.g. "tall thin grandfatherly character with a
+   * slightly protruding jaw, miserly". Image-gen treats this as a
+   * subject-reference fallback so slots that lack a photo can still
+   * be used (less consistent across cards than a real photo, but
+   * better than excluding the slot entirely).
+   */
+  description?: string;
 }
 
 export interface SetAssignment {
   name: string;
   exteriorDataUrl?: string;
   rooms?: Partial<Record<1 | 2 | 3 | 4 | 5, string>>;
+  /** Free-text description fallback for sets without exterior/room photos. */
+  description?: string;
 }
 
 const ACTORS_KEY = "hmm.actors.v1";

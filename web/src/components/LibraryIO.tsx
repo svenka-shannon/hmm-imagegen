@@ -24,11 +24,14 @@ interface ManifestActor {
   name?: string;
   /** Path inside the zip, e.g. "images/actor-b.png". Empty if no image. */
   imageFile?: string;
+  /** Text-only fallback when no photo exists. */
+  description?: string;
 }
 interface ManifestSet {
   name?: string;
   rooms?: Partial<Record<1 | 2 | 3 | 4 | 5, string>>; // tone → path
   exteriorFile?: string;
+  description?: string;
 }
 interface Manifest {
   schemaVersion: 2;
@@ -78,7 +81,11 @@ export function LibraryIO() {
 
       for (const [initial, a] of Object.entries(actors)) {
         if (!a?.name) continue;
-        const m: ManifestActor = { category: a.category, name: a.name };
+        const m: ManifestActor = {
+          category: a.category,
+          ...(a.description ? { description: a.description } : {}),
+          name: a.name,
+        };
         if (a.imageDataUrl) {
           const blob = dataUrlToBlob(a.imageDataUrl);
           if (blob) {
@@ -91,7 +98,11 @@ export function LibraryIO() {
       }
       for (const [final, s] of Object.entries(sets)) {
         if (!s?.name) continue;
-        const m: ManifestSet = { name: s.name, rooms: {} };
+        const m: ManifestSet = {
+          ...(s.description ? { description: s.description } : {}),
+          name: s.name,
+          rooms: {},
+        };
         if (s.exteriorDataUrl) {
           const blob = dataUrlToBlob(s.exteriorDataUrl);
           if (blob) {
@@ -153,6 +164,7 @@ export function LibraryIO() {
           const imageDataUrl = await readImage(m.imageFile);
           setActor(initial as Initial, {
             category: m.category ?? "man",
+            description: m.description,
             imageDataUrl,
             name: m.name,
           });
@@ -166,7 +178,7 @@ export function LibraryIO() {
             const url = await readImage(path);
             if (url) rooms[Number(tone) as 1 | 2 | 3 | 4 | 5] = url;
           }
-          setSet(final as Final, { exteriorDataUrl, name: m.name, rooms });
+          setSet(final as Final, { description: m.description, exteriorDataUrl, name: m.name, rooms });
           setCount++;
         }
       } else {

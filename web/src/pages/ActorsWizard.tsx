@@ -114,8 +114,8 @@ export function ActorsWizard({ onComplete }: Props) {
         <ActorDialog
           initial={openInitial}
           current={actors[openInitial]}
-          onSave={(name, category, imageDataUrl) => {
-            setActor(openInitial, { category, imageDataUrl, name });
+          onSave={(name, category, imageDataUrl, description) => {
+            setActor(openInitial, { category, description, imageDataUrl, name });
             setOpenInitial(null);
           }}
           onClose={() => setOpenInitial(null)}
@@ -142,8 +142,8 @@ export function ActorsWizard({ onComplete }: Props) {
 
 interface ActorDialogProps {
   readonly initial: Initial;
-  readonly current?: { name?: string; category?: ActorCategory; imageDataUrl?: string };
-  readonly onSave: (name: string, category: ActorCategory, imageDataUrl?: string) => void;
+  readonly current?: { name?: string; category?: ActorCategory; imageDataUrl?: string; description?: string };
+  readonly onSave: (name: string, category: ActorCategory, imageDataUrl?: string, description?: string) => void;
   readonly onClose: () => void;
 }
 
@@ -156,6 +156,7 @@ function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
   const [imageDataUrl, setImageDataUrl] = useState<string | undefined>(
     current?.imageDataUrl,
   );
+  const [description, setDescription] = useState<string>(current?.description ?? "");
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -214,12 +215,22 @@ function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
         {imageDataUrl && (
           <img src={imageDataUrl} alt="" className="actor-preview" />
         )}
+        <label>
+          Description (fallback if you don't have a photo)
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="e.g. tall thin grandfatherly character with a slightly protruding jaw, miserly"
+            rows={2}
+            data-testid="actor-description-input"
+          />
+        </label>
         <div className="modal-actions">
           <button onClick={onClose}>Cancel</button>
           <button
             className="primary"
             disabled={!name.trim()}
-            onClick={() => onSave(name.trim(), category, imageDataUrl)}
+            onClick={() => onSave(name.trim(), category, imageDataUrl, description.trim() || undefined)}
             data-testid="actor-save-button"
           >
             Save

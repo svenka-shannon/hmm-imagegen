@@ -94,17 +94,32 @@ export function GenerateDeck() {
 
   // A card is "ready" for inclusion when its actor + set slots are
   // filled. When image-gen is on, "ready" tightens to also require
-  // reference images for both — admin's HMM rule:
-  // "It should be based on the references" — generating Arnold in
-  // a random kitchen defeats the whole HMM premise of using YOUR
-  // specific actors + YOUR specific locations.
+  // a SUBJECT REFERENCE for both — either a reference image (highest
+  // fidelity) or a free-text description (less consistent but better
+  // than nothing for slots where the user has no usable photo).
+  // Admin's HMM rule still holds: cards never fall back to "Arnold in
+  // a random kitchen" — they always carry SOME reference signal.
   function setHasRefForTone(
-    set: { rooms?: Partial<Record<1 | 2 | 3 | 4 | 5, string>>; exteriorDataUrl?: string } | undefined,
+    set:
+      | {
+          rooms?: Partial<Record<1 | 2 | 3 | 4 | 5, string>>;
+          exteriorDataUrl?: string;
+          description?: string;
+        }
+      | undefined,
     tone: 1 | 2 | 3 | 4 | 5,
   ): boolean {
     if (!set) return false;
     if (set.rooms?.[tone]) return true;
-    return Boolean(set.exteriorDataUrl);
+    if (set.exteriorDataUrl) return true;
+    return Boolean(set.description?.trim());
+  }
+  function actorHasRef(
+    actor: { imageDataUrl?: string; description?: string } | undefined,
+  ): boolean {
+    if (!actor) return false;
+    if (actor.imageDataUrl) return true;
+    return Boolean(actor.description?.trim());
   }
   function isCardReady(entry: { pinyin: string }, requireRefs: boolean): boolean {
     const parts = parsePinyin(entry.pinyin);
@@ -113,7 +128,7 @@ export function GenerateDeck() {
     const set = sets[parts.final];
     if (!actor || !set) return false;
     if (!requireRefs) return true;
-    if (!actor.imageDataUrl) return false;
+    if (!actorHasRef(actor)) return false;
     if (!setHasRefForTone(set, parts.tone)) return false;
     return true;
   }
@@ -140,7 +155,7 @@ export function GenerateDeck() {
       if (!actor) { unreadyForInitial++; continue; }
       if (!set) { unreadyForFinal++; continue; }
       if (generateImages) {
-        if (!actor.imageDataUrl) { unreadyForActorRef++; continue; }
+        if (!actorHasRef(actor)) { unreadyForActorRef++; continue; }
         if (!setHasRefForTone(set, parts.tone)) { unreadyForSetRef++; continue; }
       }
       ready++;
