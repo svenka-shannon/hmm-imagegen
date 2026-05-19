@@ -64,6 +64,11 @@ export interface SceneBuildOpts {
    * — we just glue it on top of our base prompt.
    */
   stylePrefix?: string;
+  /**
+   * Per-user override of the tone→room labels. Falls back to the
+   * defaults in `TONE_TO_ROOM` when omitted or partial.
+   */
+  toneRooms?: Partial<Record<1 | 2 | 3 | 4 | 5, string>>;
 }
 
 export interface SceneOutput {
@@ -84,9 +89,9 @@ export interface SceneOutput {
  * surface the meaning as a hint.
  */
 export function buildScene(opts: SceneBuildOpts): SceneOutput {
-  const { pinyin, meaning, components: _components = [], actor, set, props = [], stylePrefix } = opts;
+  const { pinyin, meaning, components: _components = [], actor, set, props = [], stylePrefix, toneRooms } = opts;
   void _components; // surfaced via the props mapping; kept on the type for downstream consumers
-  const room = TONE_TO_ROOM[pinyin.tone];
+  const room = toneRooms?.[pinyin.tone] ?? TONE_TO_ROOM[pinyin.tone];
 
   const propPhrase = props.length === 0
     ? null

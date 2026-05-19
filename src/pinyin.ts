@@ -119,12 +119,23 @@ if (FINALS.length !== 13) {
 // Tone → room
 // ----------------------------------------------------------------
 
+/**
+ * Default tone-to-room mapping. Override per-learner via `useToneRooms`
+ * — different memory palaces work best with different layouts.
+ *
+ * Defaults follow the admin's convention:
+ *   1 (high/flat)   = OUTSIDE the place (yard, sidewalk, approach)
+ *   2 (rising)      = ENTRANCE / threshold
+ *   3 (falling-rise) = CORE of the place (bedroom of a home, desk of an office)
+ *   4 (falling)     = UTILITY space (bathroom, garage, maintenance closet)
+ *   5 (neutral)     = elsewhere / roof / liminal
+ */
 export const TONE_TO_ROOM: Record<1 | 2 | 3 | 4 | 5, string> = {
-  1: "entrance",
-  2: "kitchen",
-  3: "bedroom",
-  4: "bathroom",
-  5: "roof", // neutral tone
+  1: "outside",
+  2: "entrance",
+  3: "core room",
+  4: "utility room",
+  5: "roof",
 };
 
 // ----------------------------------------------------------------

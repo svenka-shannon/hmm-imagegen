@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FINALS, type Final, TONE_TO_ROOM } from "../../../src/pinyin";
-import { useSets } from "../lib/store";
+import { useSets, useToneRooms } from "../lib/store";
 import { PrepDeckButton } from "../components/PrepDeckButton";
 import { LibraryIO } from "../components/LibraryIO";
 import { useModal } from "../lib/use-modal";
@@ -32,6 +32,8 @@ const MODE_STORAGE_KEY = "hmm.sets.uploadMode";
 
 export function SetsWizard({ onComplete }: Props) {
   const { sets, setSet } = useSets();
+  const { toneRooms, setToneRoom } = useToneRooms();
+  const roomLabel = (t: 1 | 2 | 3 | 4 | 5) => toneRooms[t] || TONE_TO_ROOM[t];
   const [openFinal, setOpenFinal] = useState<Final | null>(null);
   const [mode, setMode] = useState<UploadMode>(() => {
     const saved = localStorage.getItem(MODE_STORAGE_KEY) as UploadMode | null;
@@ -76,11 +78,18 @@ export function SetsWizard({ onComplete }: Props) {
         ))}
       </div>
 
-      <div className="rooms-legend">
+      <div className="rooms-legend" data-testid="tone-room-editor">
+        <div className="rooms-legend-title">Tone → room labels (your memory palace)</div>
         {TONES.map((t) => (
-          <span key={t} className="rooms-legend-item">
-            <strong>Tone {t}:</strong> {TONE_TO_ROOM[t]}
-          </span>
+          <label key={t} className="rooms-legend-item">
+            <strong>Tone {t}:</strong>{" "}
+            <input
+              type="text"
+              value={roomLabel(t)}
+              onChange={(e) => setToneRoom(t, e.target.value)}
+              data-testid={`tone-room-${t}`}
+            />
+          </label>
         ))}
       </div>
 
@@ -156,6 +165,8 @@ interface SetDialogProps {
 
 function SetDialog({ final, current, onSave, onClose }: SetDialogProps) {
   const modalRef = useModal(onClose);
+  const { toneRooms } = useToneRooms();
+  const roomLabel = (t: 1 | 2 | 3 | 4 | 5) => toneRooms[t] || TONE_TO_ROOM[t];
   const [name, setName] = useState(current?.name ?? "");
   const [exteriorDataUrl, setExteriorDataUrl] = useState<string | undefined>(
     current?.exteriorDataUrl,
@@ -241,7 +252,7 @@ function SetDialog({ final, current, onSave, onClose }: SetDialogProps) {
             <div key={t} className="room-row">
               <div className="room-label">
                 <strong>Tone {t}</strong>
-                <span className="muted">{TONE_TO_ROOM[t]}</span>
+                <span className="muted">{roomLabel(t)}</span>
               </div>
               <input
                 type="file"

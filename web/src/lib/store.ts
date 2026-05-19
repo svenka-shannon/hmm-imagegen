@@ -62,7 +62,11 @@ export interface SetAssignment {
 
 const ACTORS_KEY = "hmm.actors.v1";
 const SETS_KEY = "hmm.sets.v1";
+const TONE_ROOMS_KEY = "hmm.toneRooms.v1";
 const LIBRARY_UPDATED_KEY = "hmm.library.updatedAt";
+
+/** Per-user override of the default tone-to-room labels. */
+export type ToneRooms = Record<1 | 2 | 3 | 4 | 5, string>;
 
 function loadJSON<T>(key: string, fallback: T): T {
   try {
@@ -181,6 +185,28 @@ export function useActors() {
     [],
   );
   return { actors, clearActor, setActor };
+}
+
+/**
+ * Per-user override of the default tone-to-room labels. Backed by
+ * localStorage. Use `null` for a slot to fall back to the default.
+ */
+export function useToneRooms(): {
+  toneRooms: Partial<ToneRooms>;
+  setToneRoom: (tone: 1 | 2 | 3 | 4 | 5, label: string) => void;
+} {
+  const [toneRooms, setToneRooms] = useState<Partial<ToneRooms>>(() =>
+    loadJSON<Partial<ToneRooms>>(TONE_ROOMS_KEY, {}),
+  );
+  useEffect(() => {
+    saveJSON(TONE_ROOMS_KEY, toneRooms);
+  }, [toneRooms]);
+  const setToneRoom = useCallback(
+    (tone: 1 | 2 | 3 | 4 | 5, label: string) =>
+      setToneRooms((prev) => ({ ...prev, [tone]: label })),
+    [],
+  );
+  return { setToneRoom, toneRooms };
 }
 
 export function useSets() {

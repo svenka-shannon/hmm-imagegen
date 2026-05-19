@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useActors, useSets } from "../lib/store";
+import { useActors, useSets, useToneRooms } from "../lib/store";
 import {
   addNotes,
   createDeck,
@@ -55,6 +55,7 @@ export function GenerateDeck() {
   const ankiReady = ankiHealth?.connected === true;
   const { actors } = useActors();
   const { sets } = useSets();
+  const { toneRooms } = useToneRooms();
   const [data, setData] = useState<LoadedData | null>(null);
   const [dataError, setDataError] = useState<string | null>(null);
   useEffect(() => {
@@ -224,6 +225,7 @@ export function GenerateDeck() {
         pinyin: parts,
         set: lib.set,
         stylePrefix: stylePrefix || undefined,
+        toneRooms,
       });
       setPreviewHanzi(candidate.hanzi);
       setPreviewScene(scene.short);

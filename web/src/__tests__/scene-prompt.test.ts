@@ -11,6 +11,9 @@ describe("buildScene", () => {
       meaning: "forest",
       pinyin,
       set: { name: "my childhood home" },
+      // Pin the room label so the test isn't coupled to whatever the
+      // current per-user default happens to be.
+      toneRooms: { 2: "kitchen" },
     });
     expect(scene.short).toBe(
       "Arnold Schwarzenegger in the kitchen of my childhood home — forest",
