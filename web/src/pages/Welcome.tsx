@@ -75,7 +75,11 @@ export function Welcome({ onStart }: Props) {
             </a>{" "}
             add-on installed and Anki desktop running
           </li>
-          <li>A Gemini API key (bring your own — see <code>~/.claude/secrets.env</code>)</li>
+          <li>
+            A Gemini API key for image generation (optional — set{" "}
+            <code>GEMINI_API_KEY</code> as an env var, or in a <code>.env</code>{" "}
+            file at the repo root)
+          </li>
         </ul>
       </div>
     </div>

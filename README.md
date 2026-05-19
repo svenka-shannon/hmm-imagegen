@@ -20,16 +20,23 @@ Anki. See "Quickstart" below.
 
 ## Quickstart
 
+Runs on macOS, Linux, and **Windows**. All you need is [Bun](https://bun.sh)
+(no python / no native build tools).
+
 ```sh
 # 1. Install deps
 bun install
 
-# 2. Set your Gemini API key (used for image generation)
-cat > ~/.claude/secrets.env <<EOF
-GEMINI_API_KEY=your-key-here
-EOF
+# 2. Set your Gemini API key for image generation (only required if you
+#    want auto-generated scene images — the wizard works fine without).
+#    macOS / Linux:
+export GEMINI_API_KEY=your-key-here
+#    Windows (PowerShell):
+$env:GEMINI_API_KEY = "your-key-here"
+#    Or drop a `.env` file at the repo root with:
+#        GEMINI_API_KEY=your-key-here
 
-# 3. Install AnkiConnect inside Anki desktop:
+# 3. Install AnkiConnect inside Anki desktop (any OS):
 #    Tools → Add-ons → Get Add-ons → Code: 2055492159
 #    Then restart Anki (it must be running for the wizard to push cards).
 
@@ -48,6 +55,15 @@ bun run dev
 #       toggle image-gen, click "Preview one card" to sanity-check, then
 #       "Build & push to Anki".
 ```
+
+### Windows notes
+
+- Install Bun via PowerShell: `powershell -c "irm bun.sh/install.ps1 | iex"`,
+  or with `winget install Oven-sh.Bun`.
+- AnkiConnect is unchanged on Windows — install the add-on, keep Anki
+  desktop running.
+- Image generation calls the Gemini REST API directly (no python / no CLI
+  shell-out), so there are no Windows-specific extra steps.
 
 ## Non-destructive re-runs
 

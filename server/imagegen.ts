@@ -10,7 +10,7 @@
  *   - or POSTed as the `apiKey` field of the body (transient — not saved)
  */
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
@@ -36,47 +36,63 @@ export interface ImagegenResult {
 
 const OUT_ROOT = join(tmpdir(), "hmm-imagegen-out");
 
-/** Decode a `data:image/...;base64,...` URL to a temp file. Returns its path. */
-async function dataUrlToFile(dataUrl: string, dir: string): Promise<string> {
-  const m = /^data:([^;]+);base64,(.+)$/i.exec(dataUrl);
-  if (!m) throw new Error("not a base64 data URL");
-  const mime = m[1];
-  const ext = mime.split("/")[1] ?? "bin";
-  const path = join(dir, `${randomUUID()}.${ext}`);
-  await writeFile(path, Buffer.from(m[2], "base64"));
-  return path;
-}
-
+/**
+ * Calls the Gemini `generateContent` REST endpoint directly. Replaces the
+ * previous shell-out to the mac-only nano-banana Python CLI so the server
+ * runs on Windows + Linux without any python / uv / google-genai install.
+ *
+ * Multi-image conditioning: any data-URL refs are decoded and inlined as
+ * `inline_data` parts so the model sees the actor portrait + room photo
+ * alongside the scene prompt — same fidelity guarantee the wizard relied
+ * on with the CLI path.
+ *
+ * Docs: https://ai.google.dev/api/generate-content
+ */
 async function gemini(req: ImagegenRequest, dir: string): Promise<string> {
   const apiKey = req.apiKey ?? process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
-  // Shell out to the local nano-banana CLI (uv-run python).
-  // This keeps the dependency out of bun's package graph + matches the
-  // existing dev-time path.
-  const outPath = join(dir, `${randomUUID()}.png`);
-  const cli = `${process.env.HOME}/.claude/skills/nano-banana/scripts/nano-banana`;
-  const args: string[] = [req.prompt, "-o", outPath];
-  if (req.model) args.push("--model", req.model);
-  // Save refs as temp files and pass as -i flags.
+  const model = req.model ?? "gemini-2.5-flash-image";
+
+  interface InlineData { inline_data: { data: string; mime_type: string } }
+  interface TextPart { text: string }
+  type Part = InlineData | TextPart;
+
+  const parts: Part[] = [{ text: req.prompt }];
   for (const ref of req.refs ?? []) {
-    if (ref.startsWith("data:")) {
-      const p = await dataUrlToFile(ref, dir);
-      args.push("-i", p);
-    } else if (/^https?:\/\//i.test(ref)) {
-      // The CLI accepts file paths; web URLs aren't supported directly.
-      // Skip silently for v1 — refs should be data URLs from the wizard.
-    }
+    if (!ref.startsWith("data:")) continue;
+    const m = /^data:([^;]+);base64,(.+)$/i.exec(ref);
+    if (!m) continue;
+    parts.push({ inline_data: { data: m[2], mime_type: m[1] } });
   }
-  const proc = Bun.spawn([cli, ...args], {
-    env: { ...process.env, GEMINI_API_KEY: apiKey },
-    stderr: "pipe",
-    stdout: "pipe",
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const res = await fetch(url, {
+    body: JSON.stringify({
+      contents: [{ parts }],
+      generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+    }),
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    method: "POST",
   });
-  const exit = await proc.exited;
-  if (exit !== 0) {
-    const err = await new Response(proc.stderr).text();
-    throw new Error(`nano-banana failed (${exit}): ${err}`);
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Gemini API ${res.status}: ${errText.slice(0, 500)}`);
   }
+  interface GeminiResponse {
+    candidates?: {
+      content?: { parts?: { inlineData?: { data: string; mimeType: string } }[] };
+    }[];
+  }
+  const body = (await res.json()) as GeminiResponse;
+  const imagePart = body.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
+  if (!imagePart?.inlineData) {
+    throw new Error("Gemini response contained no image data");
+  }
+  const outPath = join(dir, `${randomUUID()}.png`);
+  await writeFile(outPath, Buffer.from(imagePart.inlineData.data, "base64"));
   return outPath;
 }
 
@@ -108,8 +124,9 @@ export async function generate(req: ImagegenRequest): Promise<ImagegenResult> {
       throw new Error(`unknown backend: ${_exhaustive}`);
     }
   }
-  const filename = outPath.split("/").pop()!;
-  return { path: outPath, url: `/api/imagegen/file/${filename}` };
+  // Use basename(), not split("/"): on Windows the separator is "\"
+  // so split("/") would return the whole path as one segment.
+  return { path: outPath, url: `/api/imagegen/file/${basename(outPath)}` };
 }
 
 export { OUT_ROOT };

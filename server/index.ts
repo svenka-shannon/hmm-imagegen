@@ -108,8 +108,11 @@ const server = Bun.serve({
     if (req.method === "GET" && url.pathname.startsWith("/api/imagegen/file/")) {
       // Walk OUT_ROOT to find the file (it's nested under a session UUID).
       const filename = url.pathname.replace("/api/imagegen/file/", "");
-      // Defence: no path traversal.
-      if (filename.includes("/") || filename.includes("..")) {
+      // Defence: no path traversal. Backslash is a separator on Windows so
+      // we reject it too — even though URL paths always use forward slashes,
+      // a malicious client could URL-encode \ to bypass a forward-slash-only
+      // check on a Windows host.
+      if (filename.includes("/") || filename.includes("\\") || filename.includes("..")) {
         return new Response("Bad request", { headers: CORS, status: 400 });
       }
       // Look up by walking session dirs.
