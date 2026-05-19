@@ -4,6 +4,7 @@ import { useActors } from "../lib/store";
 import { PrepDeckButton } from "../components/PrepDeckButton";
 import { LibraryIO } from "../components/LibraryIO";
 import { useModal } from "../lib/use-modal";
+import { generatePortrait } from "../lib/imagegen-client";
 
 interface Props {
   readonly onComplete: () => void;
@@ -191,6 +192,30 @@ function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
     setImageDataUrls((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  // One-shot portrait generation for description-only actors. Pins the
+  // character's appearance across all scene cards by producing a
+  // canonical reference photo from the text description. Without this,
+  // image-gen renders a slightly different "Zack" each card.
+  const [genBusy, setGenBusy] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  async function generateCanonicalPortrait() {
+    if (!name.trim() || !description.trim()) return;
+    setGenBusy(true);
+    setGenError(null);
+    try {
+      const dataUrl = await generatePortrait({
+        description: description.trim(),
+        kind: "actor",
+        name: name.trim(),
+      });
+      setImageDataUrls((prev) => [...prev, dataUrl]);
+    } catch (err) {
+      setGenError((err as Error).message);
+    } finally {
+      setGenBusy(false);
+    }
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
@@ -261,6 +286,20 @@ function ActorDialog({ initial, current, onSave, onClose }: ActorDialogProps) {
             data-testid="actor-description-input"
           />
         </label>
+        {description.trim() && (
+          <div className="portrait-gen-row">
+            <button
+              type="button"
+              onClick={() => void generateCanonicalPortrait()}
+              disabled={genBusy || !name.trim()}
+              data-testid="actor-generate-portrait"
+              title="Generate a canonical portrait from the description so the character looks the same across every card"
+            >
+              {genBusy ? "Generating portrait…" : "Generate canonical portrait from description"}
+            </button>
+            {genError && <span className="portrait-gen-error">{genError}</span>}
+          </div>
+        )}
         <div className="modal-actions">
           <button onClick={onClose}>Cancel</button>
           <button

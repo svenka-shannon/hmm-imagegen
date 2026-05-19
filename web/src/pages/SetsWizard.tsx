@@ -4,6 +4,7 @@ import { useSets } from "../lib/store";
 import { PrepDeckButton } from "../components/PrepDeckButton";
 import { LibraryIO } from "../components/LibraryIO";
 import { useModal } from "../lib/use-modal";
+import { generatePortrait } from "../lib/imagegen-client";
 
 interface Props {
   readonly onComplete: () => void;
@@ -163,6 +164,25 @@ function SetDialog({ final, current, onSave, onClose }: SetDialogProps) {
     current?.rooms ?? {},
   );
   const [description, setDescription] = useState<string>(current?.description ?? "");
+  const [genBusy, setGenBusy] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  async function generateCanonicalExterior() {
+    if (!name.trim() || !description.trim()) return;
+    setGenBusy(true);
+    setGenError(null);
+    try {
+      const dataUrl = await generatePortrait({
+        description: description.trim(),
+        kind: "set",
+        name: name.trim(),
+      });
+      setExteriorDataUrl(dataUrl);
+    } catch (err) {
+      setGenError((err as Error).message);
+    } finally {
+      setGenBusy(false);
+    }
+  }
 
   function readFile(file: File, cb: (dataUrl: string) => void) {
     const reader = new FileReader();
@@ -241,6 +261,20 @@ function SetDialog({ final, current, onSave, onClose }: SetDialogProps) {
             data-testid="set-description-input"
           />
         </label>
+        {description.trim() && (
+          <div className="portrait-gen-row">
+            <button
+              type="button"
+              onClick={() => void generateCanonicalExterior()}
+              disabled={genBusy || !name.trim()}
+              data-testid="set-generate-exterior"
+              title="Generate a canonical exterior shot from the description so the place looks the same across every card"
+            >
+              {genBusy ? "Generating exterior…" : "Generate canonical exterior from description"}
+            </button>
+            {genError && <span className="portrait-gen-error">{genError}</span>}
+          </div>
+        )}
 
         <div className="modal-actions">
           <button onClick={onClose}>Cancel</button>
